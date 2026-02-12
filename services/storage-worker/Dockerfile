@@ -5,7 +5,7 @@ WORKDIR /app
 # Copy the shared models package into a location where
 # `import shared.models` resolves correctly via PYTHONPATH.
 COPY services/shared /app/lib/shared
-ENV PYTHONPATH="/app/lib"
+ENV PYTHONPATH="/app/lib/shared"
 
 # Install shared package dependencies (pydantic).
 RUN pip install --no-cache-dir pydantic>=2.0.0
