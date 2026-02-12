@@ -210,15 +210,18 @@ def upgrade() -> None:
     )
 
     # ------------------------------------------------------------------
-    # Continuous Aggregate: agent_health_hourly
+    # Materialized View: agent_health_hourly
+    #
+    # Uses date_trunc instead of time_bucket for standard Postgres
+    # compatibility.  On TimescaleDB with a commercial license you could
+    # replace this with a continuous aggregate for automatic refresh.
     # ------------------------------------------------------------------
     op.execute(
         """
-        CREATE MATERIALIZED VIEW agent_health_hourly
-        WITH (timescaledb.continuous) AS
+        CREATE MATERIALIZED VIEW agent_health_hourly AS
         SELECT
             agent_id,
-            time_bucket('1 hour', timestamp) AS bucket,
+            date_trunc('hour', timestamp) AS bucket,
             COUNT(*) AS execution_count,
             AVG(confidence) AS avg_confidence,
             COUNT(*) FILTER (WHERE action = 'pass') AS pass_count,
@@ -233,14 +236,10 @@ def upgrade() -> None:
         """
     )
 
-    # Refresh policy: refresh every 1 minute, covering the last 2 hours
     op.execute(
         """
-        SELECT add_continuous_aggregate_policy('agent_health_hourly',
-            start_offset    => INTERVAL '3 hours',
-            end_offset      => INTERVAL '1 hour',
-            schedule_interval => INTERVAL '1 hour'
-        );
+        CREATE UNIQUE INDEX ix_agent_health_hourly_agent_bucket
+        ON agent_health_hourly (agent_id, bucket);
         """
     )
 
@@ -248,11 +247,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Drop in reverse dependency order.
 
-    # 1. Remove the continuous aggregate refresh policy and view first
-    op.execute(
-        "SELECT remove_continuous_aggregate_policy('agent_health_hourly', "
-        "if_exists => true)"
-    )
+    # 1. Remove the materialized view first
     op.execute("DROP MATERIALIZED VIEW IF EXISTS agent_health_hourly CASCADE")
 
     # 2. Drop tables in reverse creation order
