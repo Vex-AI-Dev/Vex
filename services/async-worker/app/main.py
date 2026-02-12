@@ -75,6 +75,18 @@ async def run() -> None:
                 for msg_id, data in entries:
                     try:
                         event = IngestEvent.model_validate_json(data["data"])
+
+                        # Skip events already verified by the sync gateway
+                        # (correction cascade path) to avoid overwriting
+                        # corrected results.
+                        if event.metadata and event.metadata.get("already_verified"):
+                            await redis_client.xack(STREAM_KEY, CONSUMER_GROUP, msg_id)
+                            logger.info(
+                                "Skipping already-verified event %s",
+                                event.execution_id,
+                            )
+                            continue
+
                         verified_event = await process_event(event)
 
                         await redis_client.xack(STREAM_KEY, CONSUMER_GROUP, msg_id)
