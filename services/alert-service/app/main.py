@@ -74,6 +74,9 @@ async def run() -> None:
                         db_session = SessionLocal()
                         try:
                             await process_verified_event(event_data, db_session)
+                        except Exception:
+                            db_session.rollback()
+                            raise
                         finally:
                             db_session.close()
 

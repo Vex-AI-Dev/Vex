@@ -79,6 +79,9 @@ async def _consume_raw(redis_client: aioredis.Redis, s3_client: object) -> None:
                                 db_session,
                                 org_id=org_id,
                             )
+                        except Exception:
+                            db_session.rollback()
+                            raise
                         finally:
                             db_session.close()
 
@@ -122,6 +125,9 @@ async def _consume_verified(redis_client: aioredis.Redis) -> None:
                         db_session = SessionLocal()
                         try:
                             updated = process_verified_event(event_data, db_session)
+                        except Exception:
+                            db_session.rollback()
+                            raise
                         finally:
                             db_session.close()
 
