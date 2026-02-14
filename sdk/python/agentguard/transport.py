@@ -74,8 +74,9 @@ class AsyncTransport:
         """Return the shared ``httpx.AsyncClient``, creating it on first use."""
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
-                timeout=self.timeout_s,
+                timeout=httpx.Timeout(connect=5.0, read=self.timeout_s, write=10.0, pool=5.0),
                 headers={"X-AgentGuard-Key": self.api_key},
+                limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
             )
         return self._client
 
@@ -262,8 +263,9 @@ class SyncTransport:
         self.correction_timeout_s: float = correction_timeout_s
 
         self._client: httpx.Client = httpx.Client(
-            timeout=self.timeout_s,
+            timeout=httpx.Timeout(connect=5.0, read=self.timeout_s, write=10.0, pool=5.0),
             headers={"X-AgentGuard-Key": self.api_key},
+            limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
         )
         self._correction_client: Optional[httpx.Client] = None
 
@@ -275,8 +277,9 @@ class SyncTransport:
         """Return the correction client with longer timeout, creating on first use."""
         if self._correction_client is None or self._correction_client.is_closed:
             self._correction_client = httpx.Client(
-                timeout=self.correction_timeout_s,
+                timeout=httpx.Timeout(connect=5.0, read=self.correction_timeout_s, write=10.0, pool=5.0),
                 headers={"X-AgentGuard-Key": self.api_key},
+                limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
             )
         return self._correction_client
 

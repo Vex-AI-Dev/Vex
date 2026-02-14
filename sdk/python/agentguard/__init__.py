@@ -1,13 +1,14 @@
 from importlib.metadata import PackageNotFoundError, version
 
 from agentguard.config import GuardConfig
-from agentguard.exceptions import AgentGuardBlockError
+from agentguard.exceptions import AgentGuardBlockError, ConfigurationError
 from agentguard.guard import AgentGuard, Session
 from agentguard.models import ConversationTurn, GuardResult
 
 __all__ = [
     "AgentGuard",
     "AgentGuardBlockError",
+    "ConfigurationError",
     "ConversationTurn",
     "GuardConfig",
     "GuardResult",
