@@ -259,9 +259,9 @@ def test_sync_transport_correction_client_uses_longer_timeout():
     event = ExecutionEvent(agent_id="test", input={}, output={})
     transport.verify(event, correction="cascade")
 
-    # Verify the correction client was used (has 12s timeout)
+    # Verify the correction client was used (has 12s read timeout)
     assert transport._correction_client is not None
-    assert transport._correction_client.timeout.connect == 12.0
+    assert transport._correction_client.timeout.read == 12.0
     transport.close()
 
 
@@ -547,3 +547,18 @@ def test_sync_verify_no_retry_on_http_error():
     # Should have made only 1 call (no retry on HTTP errors)
     assert route.call_count == 1
     transport.close()
+
+
+def test_async_client_uses_granular_timeouts():
+    transport = AsyncTransport(api_url="http://localhost", api_key="test-key-1234567890", timeout_s=10.0)
+    client = transport._get_client()
+    assert client.timeout.connect == 5.0
+    assert client.timeout.read == 10.0
+    assert client.timeout.pool == 5.0
+
+
+def test_sync_client_uses_granular_timeouts():
+    transport = SyncTransport(api_url="http://localhost", api_key="test-key-1234567890", timeout_s=10.0)
+    assert transport._client.timeout.connect == 5.0
+    assert transport._client.timeout.read == 10.0
+    assert transport._client.timeout.pool == 5.0

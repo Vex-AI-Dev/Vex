@@ -7,7 +7,7 @@ import httpx
 import pytest
 import respx
 
-from agentguard import AgentGuard, AgentGuardBlockError, ConversationTurn, GuardConfig, GuardResult
+from agentguard import AgentGuard, AgentGuardBlockError, ConfigurationError, ConversationTurn, GuardConfig, GuardResult
 from agentguard.models import ThresholdConfig
 
 
@@ -33,6 +33,33 @@ def test_guard_init_does_not_store_event_loop():
     """AgentGuard constructor should not store an event loop on self."""
     guard = AgentGuard(api_key="test-key-1234567890")
     assert not hasattr(guard, "_loop"), "Guard should not store _loop on self"
+    guard.close()
+
+
+def test_guard_rejects_empty_api_key():
+    with pytest.raises(ConfigurationError, match="cannot be empty"):
+        AgentGuard(api_key="")
+
+
+def test_guard_rejects_whitespace_api_key():
+    with pytest.raises(ConfigurationError, match="cannot be empty"):
+        AgentGuard(api_key="   ")
+
+
+def test_guard_rejects_short_api_key():
+    with pytest.raises(ConfigurationError, match="too short"):
+        AgentGuard(api_key="abc")
+
+
+def test_guard_strips_whitespace_from_api_key():
+    guard = AgentGuard(api_key="  test-key-1234567890  ")
+    assert guard.api_key == "test-key-1234567890"
+    guard.close()
+
+
+def test_default_config_does_not_log_event_ids():
+    guard = AgentGuard(api_key="test-key-1234567890", config=GuardConfig(mode="async"))
+    assert guard.config.log_event_ids is False
     guard.close()
 
 

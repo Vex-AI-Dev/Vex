@@ -22,7 +22,7 @@ from contextlib import contextmanager
 from typing import Any, Callable, Dict, Generator, List, Optional
 
 from agentguard.config import GuardConfig
-from agentguard.exceptions import AgentGuardBlockError
+from agentguard.exceptions import AgentGuardBlockError, ConfigurationError
 from agentguard.models import ConversationTurn, ExecutionEvent, GuardResult, StepRecord
 from agentguard.transport import AsyncTransport, SyncTransport
 
@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 class Session:
     """Groups multiple trace executions into a logical session.
+
+    **Thread Safety:** Session instances are NOT thread-safe. Do not call
+    ``trace()`` concurrently from multiple threads on the same Session
+    instance. Create separate Session instances per thread if needed.
 
     Automatically assigns a shared session_id and auto-incrementing
     sequence_number to each trace created through this session.
@@ -268,6 +272,12 @@ class AgentGuard:
         api_key: str,
         config: Optional[GuardConfig] = None,
     ) -> None:
+        # Validate API key
+        if not api_key or not api_key.strip():
+            raise ConfigurationError("API key cannot be empty")
+        api_key = api_key.strip()
+        if len(api_key) < 10:
+            raise ConfigurationError("API key appears invalid (too short)")
         self.api_key = api_key
         self.config = config or GuardConfig()
 
@@ -367,21 +377,33 @@ class AgentGuard:
                     raise AgentGuardBlockError(result)
 
                 if result.action == "flag":
-                    logger.warning(
-                        "Agent output flagged for event %s (confidence=%s)",
-                        event.execution_id,
-                        result.confidence,
-                    )
+                    if self.config.log_event_ids:
+                        logger.warning(
+                            "Agent output flagged for event %s (confidence=%s)",
+                            event.execution_id,
+                            result.confidence,
+                        )
+                    else:
+                        logger.warning(
+                            "Agent output flagged (confidence=%s)",
+                            result.confidence,
+                        )
 
                 return result
             except AgentGuardBlockError:
                 raise
             except Exception:
-                logger.warning(
-                    "Sync verification failed for event %s; returning pass-through result",
-                    event.execution_id,
-                    exc_info=True,
-                )
+                if self.config.log_event_ids:
+                    logger.warning(
+                        "Sync verification failed for event %s; returning pass-through result",
+                        event.execution_id,
+                        exc_info=True,
+                    )
+                else:
+                    logger.warning(
+                        "Sync verification failed; returning pass-through result",
+                        exc_info=True,
+                    )
                 return GuardResult(
                     output=event.output,
                     action="pass",
