@@ -14,6 +14,7 @@ Provides two transport implementations:
 import asyncio
 import logging
 import threading
+import time
 from typing import Dict, List, Optional
 
 import httpx
@@ -121,8 +122,13 @@ class AsyncTransport:
     async def flush(self) -> None:
         """Send all buffered events as a batch POST to the Ingestion API.
 
-        On success the buffer is cleared.  On failure the events are put back
-        into the buffer so they can be retried on the next flush cycle.
+        Retries up to 3 times with exponential backoff (0.1s, 0.2s, 0.4s) for
+        server errors (5xx) and network errors. Client errors (4xx) are not
+        retried as they indicate permanent failures.
+
+        On success the buffer is cleared. After all retries are exhausted,
+        events are put back into the buffer so they can be retried on the next
+        flush cycle.
 
         When retrying, respects ``max_buffer_size``: if the buffer is already
         partially full, only the events that fit are returned, and the rest
@@ -137,31 +143,77 @@ class AsyncTransport:
         payload = [event.model_dump(mode="json") for event in batch]
         url = f"{self.api_url}/v1/ingest/batch"
 
-        try:
-            client = self._get_client()
-            response = await client.post(url, json={"events": payload})
-            response.raise_for_status()
-            logger.debug(
-                "Flushed %d events to %s (status %d)",
-                len(batch),
-                url,
-                response.status_code,
-            )
-        except Exception:
-            # Put events back for retry
-            logger.warning(
-                "Failed to flush %d events; returning to buffer for retry",
-                len(batch),
-                exc_info=True,
-            )
-            with self._lock:
-                available_space = max(0, self.max_buffer_size - len(self._buffer))
-                events_to_retry = batch[:available_space]
-                dropped = len(batch) - len(events_to_retry)
-                if dropped > 0:
-                    self._dropped_count += dropped
-                    logger.warning("Dropped %d events due to buffer overflow on retry", dropped)
-                self._buffer = events_to_retry + self._buffer
+        max_retries = 3
+        base_delay = 0.1
+
+        for attempt in range(max_retries):
+            try:
+                client = self._get_client()
+                response = await client.post(url, json={"events": payload})
+                response.raise_for_status()
+                logger.debug(
+                    "Flushed %d events to %s (status %d)",
+                    len(batch),
+                    url,
+                    response.status_code,
+                )
+                return  # Success - exit without putting events back
+            except httpx.HTTPStatusError as e:
+                # Client errors (4xx) are permanent - don't retry, don't re-buffer
+                if e.response.status_code < 500:
+                    logger.warning(
+                        "Client error %d on flush; dropping %d events (not retrying)",
+                        e.response.status_code,
+                        len(batch),
+                    )
+                    return  # Don't put events back in buffer
+                # Server errors (5xx) are transient - retry with backoff
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    logger.warning(
+                        "Server error %d on flush (attempt %d/%d); retrying in %.2fs",
+                        e.response.status_code,
+                        attempt + 1,
+                        max_retries,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.warning(
+                        "Server error %d on flush after %d attempts; returning to buffer",
+                        e.response.status_code,
+                        max_retries,
+                        exc_info=True,
+                    )
+            except Exception as e:
+                # Network errors and other exceptions - retry with backoff
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    logger.warning(
+                        "Network error on flush (attempt %d/%d); retrying in %.2fs: %s",
+                        attempt + 1,
+                        max_retries,
+                        delay,
+                        type(e).__name__,
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.warning(
+                        "Failed to flush %d events after %d attempts; returning to buffer",
+                        len(batch),
+                        max_retries,
+                        exc_info=True,
+                    )
+
+        # All retries exhausted - put events back in buffer
+        with self._lock:
+            available_space = max(0, self.max_buffer_size - len(self._buffer))
+            events_to_retry = batch[:available_space]
+            dropped = len(batch) - len(events_to_retry)
+            if dropped > 0:
+                self._dropped_count += dropped
+                logger.warning("Dropped %d events due to buffer overflow on retry", dropped)
+            self._buffer = events_to_retry + self._buffer
 
     async def close(self) -> None:
         """Flush remaining events and close the underlying HTTP client."""
@@ -250,6 +302,10 @@ class SyncTransport:
         loop.  The *correction* and *transparency* values are forwarded in
         the payload metadata.
 
+        Retries up to 3 times with exponential backoff (0.1s, 0.2s, 0.4s) for
+        network errors. HTTP errors (4xx/5xx) are raised immediately without
+        retry, as the caller must handle them (e.g., block on low confidence).
+
         Parameters
         ----------
         event:
@@ -284,10 +340,45 @@ class SyncTransport:
         # Select the appropriate client based on correction mode
         client = self._get_correction_client() if correction != "none" else self._client
 
-        response = client.post(url, json=payload)
-        response.raise_for_status()
-        result: Dict[str, object] = response.json()
-        return result
+        max_retries = 3
+        base_delay = 0.1
+        last_exception: Optional[Exception] = None
+
+        for attempt in range(max_retries):
+            try:
+                response = client.post(url, json=payload)
+                response.raise_for_status()
+                result: Dict[str, object] = response.json()
+                return result
+            except httpx.HTTPStatusError:
+                # HTTP errors (4xx/5xx) should be raised immediately
+                # The caller needs to handle these (e.g., block on low confidence)
+                raise
+            except Exception as e:
+                # Network errors - retry with backoff
+                last_exception = e
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    logger.warning(
+                        "Network error on verify (attempt %d/%d); retrying in %.2fs: %s",
+                        attempt + 1,
+                        max_retries,
+                        delay,
+                        type(e).__name__,
+                    )
+                    time.sleep(delay)
+                else:
+                    logger.warning(
+                        "Failed to verify after %d attempts",
+                        max_retries,
+                        exc_info=True,
+                    )
+
+        # All retries exhausted - raise the last exception
+        if last_exception is not None:
+            raise last_exception
+        # This should never happen, but satisfy the type checker
+        raise RuntimeError("verify() failed without setting last_exception")
 
     def close(self) -> None:
         """Close the underlying HTTP clients."""

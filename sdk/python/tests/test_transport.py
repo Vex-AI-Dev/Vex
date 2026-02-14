@@ -428,3 +428,122 @@ async def test_transport_flush_retry_drops_overflow():
 
     assert len(transport._buffer) == 10  # At max capacity
     assert transport._dropped_count == 3  # 8 - 5 = 3 dropped
+
+
+# ---------------------------------------------------------------------------
+# AsyncTransport retry tests
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_flush_retries_on_server_error(transport):
+    """flush() should retry up to 3 times on server errors (5xx) with backoff."""
+    call_count = 0
+
+    def side_effect(request):
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            # Fail with 502 on first two attempts
+            return httpx.Response(502, text="Bad Gateway")
+        # Succeed on third attempt
+        return httpx.Response(202, json={"accepted": 2})
+
+    respx.post("https://api.agentguard.dev/v1/ingest/batch").mock(side_effect=side_effect)
+
+    for _ in range(2):
+        transport.enqueue(ExecutionEvent(agent_id="test", input={}, output={}))
+
+    await transport.flush()
+
+    # Should have made 3 calls (2 failures + 1 success)
+    assert call_count == 3
+    # Buffer should be empty after success
+    assert len(transport._buffer) == 0
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_flush_no_retry_on_client_error(transport):
+    """flush() should not retry on client errors (4xx) and should drop events."""
+    route = respx.post("https://api.agentguard.dev/v1/ingest/batch").mock(
+        return_value=httpx.Response(401, text="Unauthorized")
+    )
+
+    for _ in range(2):
+        transport.enqueue(ExecutionEvent(agent_id="test", input={}, output={}))
+
+    await transport.flush()
+
+    # Should have made only 1 call (no retry on 4xx)
+    assert route.call_count == 1
+    # Buffer should be empty (events dropped, not re-buffered)
+    assert len(transport._buffer) == 0
+
+
+# ---------------------------------------------------------------------------
+# SyncTransport retry tests
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+def test_sync_verify_retries_on_network_error():
+    """verify() should retry up to 3 times on network errors with backoff."""
+    call_count = 0
+
+    def side_effect(request):
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            # Raise ConnectError on first two attempts
+            raise httpx.ConnectError("Connection failed")
+        # Succeed on third attempt
+        return httpx.Response(
+            200,
+            json={
+                "execution_id": "exec-123",
+                "confidence": 0.92,
+                "action": "pass",
+                "output": "verified",
+                "corrections": None,
+                "checks": {},
+            },
+        )
+
+    respx.post("https://api.agentguard.dev/v1/verify").mock(side_effect=side_effect)
+
+    transport = SyncTransport(
+        api_url="https://api.agentguard.dev",
+        api_key="ag_test_key",
+        timeout_s=2.0,
+    )
+    event = ExecutionEvent(agent_id="test", input={}, output={})
+    result = transport.verify(event)
+
+    # Should have made 3 calls (2 failures + 1 success)
+    assert call_count == 3
+    assert result["confidence"] == 0.92
+    transport.close()
+
+
+@respx.mock
+def test_sync_verify_no_retry_on_http_error():
+    """verify() should not retry on HTTP errors (4xx/5xx) and raise immediately."""
+    route = respx.post("https://api.agentguard.dev/v1/verify").mock(
+        return_value=httpx.Response(401, text="Unauthorized")
+    )
+
+    transport = SyncTransport(
+        api_url="https://api.agentguard.dev",
+        api_key="ag_test_key",
+        timeout_s=2.0,
+    )
+    event = ExecutionEvent(agent_id="test", input={}, output={})
+
+    with pytest.raises(httpx.HTTPStatusError):
+        transport.verify(event)
+
+    # Should have made only 1 call (no retry on HTTP errors)
+    assert route.call_count == 1
+    transport.close()
