@@ -65,6 +65,7 @@ async def process_verified_event(
 
     agent_id = event_data.get("agent_id", "")
     execution_id = event_data.get("execution_id", "")
+    org_id = event_data.get("org_id", DEFAULT_ORG)
     confidence_str = event_data.get("confidence", "")
     confidence = float(confidence_str) if confidence_str else None
 
@@ -121,7 +122,7 @@ async def process_verified_event(
             "alert_id": alert_id,
             "execution_id": execution_id,
             "agent_id": agent_id,
-            "org_id": DEFAULT_ORG,
+            "org_id": org_id,
             "alert_type": f"verification_{action}",
             "severity": severity,
             "delivered": delivered,

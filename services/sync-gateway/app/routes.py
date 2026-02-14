@@ -235,6 +235,7 @@ async def verify_endpoint(
         verified_data = {
             "execution_id": event.execution_id,
             "agent_id": event.agent_id,
+            "org_id": event.metadata.get("org_id", "default"),
             "confidence": str(response.confidence) if response.confidence is not None else "",
             "action": response.action,
             "checks": json.dumps(

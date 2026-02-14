@@ -48,9 +48,12 @@ async def process_event(event: IngestEvent) -> Dict[str, Any]:
                 "details": check.details,
             }
 
+        org_id = event.metadata.get("org_id", "default") if event.metadata else "default"
+
         return {
             "execution_id": event.execution_id,
             "agent_id": event.agent_id,
+            "org_id": org_id,
             "confidence": str(result.confidence) if result.confidence is not None else "",
             "action": result.action,
             "checks": json.dumps(checks_data),
@@ -61,9 +64,12 @@ async def process_event(event: IngestEvent) -> Dict[str, Any]:
             event.execution_id,
             exc_info=True,
         )
+        org_id = event.metadata.get("org_id", "default") if event.metadata else "default"
+
         return {
             "execution_id": event.execution_id,
             "agent_id": event.agent_id,
+            "org_id": org_id,
             "confidence": "",
             "action": "pass",
             "checks": "{}",
