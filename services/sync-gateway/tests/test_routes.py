@@ -493,6 +493,46 @@ async def test_verify_pass_skips_correction(client, mock_redis):
     assert mock_verify.call_count == 1
 
 
+@pytest.mark.asyncio
+async def test_verify_correction_improved_but_not_pass(client, mock_redis):
+    """Correction improves confidence (flag, not pass) → still accepted as corrected."""
+    from engine.models import CorrectionAttempt
+
+    # Initial: block at 0.3
+    initial = VerificationResult(confidence=0.3, action="block", checks={
+        "hallucination": CheckResult(check_type="hallucination", score=0.1, passed=False),
+    })
+    # Re-verification after correction: flag at 0.7 — better, but not pass
+    improved = VerificationResult(confidence=0.7, action="flag", checks={
+        "hallucination": CheckResult(check_type="hallucination", score=0.6, passed=True),
+    })
+
+    attempt = CorrectionAttempt(
+        layer=2, layer_name="constrained_regen", input_action="block",
+        corrected_output="improved output", model_used="gpt-4o",
+        latency_ms=1500.0, success=True,
+    )
+
+    with patch("app.routes.run_verification", new_callable=AsyncMock,
+               side_effect=[initial, improved, improved]), \
+         patch("app.routes.run_correction", new_callable=AsyncMock,
+               return_value=attempt):
+        response = await client.post(
+            "/v1/verify",
+            json={"agent_id": "test-bot", "input": "hello", "output": "bad output",
+                  "metadata": {"correction": "cascade", "transparency": "transparent"}},
+            headers={"X-AgentGuard-Key": "test-key"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["corrected"] is True
+    assert data["output"] == "improved output"
+    assert data["confidence"] == 0.7
+    assert data["action"] == "flag"
+    assert data["original_output"] == "bad output"
+
+
 # --- Ingestion endpoint tests ---
 
 

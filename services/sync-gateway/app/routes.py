@@ -89,8 +89,16 @@ async def _verify_and_correct(
     # --- Correction cascade (only when enabled AND initial check failed) ---
     if correction_mode == "cascade" and result.action != "pass":
         original_output = event.output
+        initial_confidence = result.confidence
         correction_attempts = []
         current_layer = select_layer(result)
+
+        # Track the best correction seen across all attempts, even if none
+        # reached "pass".  After the loop we accept the best correction if
+        # it improved on the initial confidence score.
+        best_confidence: Optional[float] = None
+        best_output: Optional[str] = None
+        best_result: Optional[VerificationResult] = None
 
         for _attempt_idx in range(MAX_CORRECTION_ATTEMPTS):
             # Always correct from the original output (never from a prior fix)
@@ -128,10 +136,27 @@ async def _verify_and_correct(
             if result.action == "pass":
                 corrected = True
                 final_output = attempt.corrected_output
+                best_result = None
                 break
+
+            # Track the best correction even if it didn't reach "pass"
+            if result.confidence is not None and (
+                best_confidence is None or result.confidence > best_confidence
+            ):
+                best_confidence = result.confidence
+                best_output = attempt.corrected_output
+                best_result = result
 
             # Re-verification failed -- escalate to next layer
             current_layer = min(current_layer + 1, 3)
+
+        # No attempt reached "pass", but if the best correction improved
+        # on the initial confidence, use it — the output is strictly better.
+        if not corrected and best_result is not None and best_confidence is not None:
+            if initial_confidence is None or best_confidence > initial_confidence:
+                corrected = True
+                final_output = best_output
+                result = best_result
 
     return result, final_output, corrected, correction_attempts
 
