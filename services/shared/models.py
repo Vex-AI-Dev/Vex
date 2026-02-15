@@ -55,8 +55,8 @@ class IngestEvent(BaseModel):
     sequence_number: Optional[int] = None
     agent_id: str
     task: Optional[str] = None
-    input: Any
-    output: Any
+    input: Any = None
+    output: Any = None
     steps: List[StepRecord] = Field(default_factory=list)
     token_count: Optional[int] = None
     cost_estimate: Optional[float] = None
