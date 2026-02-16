@@ -87,7 +87,7 @@ async def _verify_and_correct(
     correction_attempts: Optional[List[CorrectionAttempt]] = None
 
     # --- Correction cascade (only when enabled AND initial check failed) ---
-    if correction_mode == "cascade" and result.action != "pass":
+    if correction_mode in ("cascade", "auto") and result.action != "pass":
         original_output = event.output
         initial_confidence = result.confidence
         correction_attempts = []
@@ -206,8 +206,8 @@ async def verify_endpoint(
         flag_threshold=thresholds.get("flag_threshold", 0.5),
     )
 
-    # Dynamic timeout: 10 s for correction cascade, 2 s for verify-only
-    timeout = CORRECTION_TIMEOUT_S if correction_mode == "cascade" else GATEWAY_TIMEOUT_S
+    # Dynamic timeout: 10 s for correction (cascade/auto), 2 s for verify-only
+    timeout = CORRECTION_TIMEOUT_S if correction_mode in ("cascade", "auto") else GATEWAY_TIMEOUT_S
 
     try:
         result, final_output, corrected, correction_attempts = await asyncio.wait_for(
