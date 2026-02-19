@@ -73,16 +73,24 @@ async def call_llm(
     api_base = os.environ.get("LITELLM_API_URL") or os.environ.get("OPENAI_API_BASE")
     api_key = os.environ.get("LITELLM_API_KEY") or os.environ.get("OPENAI_API_KEY")
 
+    # When routing through a LiteLLM proxy, prepend "openai/" so the
+    # LiteLLM client uses the OpenAI-compatible /chat/completions endpoint
+    # and passes the model name as-is to the proxy (which handles routing).
+    # Without this, LiteLLM interprets "zai/glm-5" as provider=zai, model=glm-5.
+    effective_model = model
+    if api_base and "/" in model and not model.startswith("openai/"):
+        effective_model = f"openai/{model}"
+
     kwargs: Dict[str, Any] = {
-        "model": model,
+        "model": effective_model,
         "messages": messages,
         "timeout": timeout_s,
         "temperature": 0.0,
     }
 
-    # Only include response_format for providers that support it
+    # Only include response_format for native OpenAI models (not proxied)
     model_lower = model.lower()
-    if any(model_lower.startswith(p) for p in _JSON_MODE_PREFIXES):
+    if not api_base and any(model_lower.startswith(p) for p in _JSON_MODE_PREFIXES):
         kwargs["response_format"] = {"type": "json_object"}
 
     if api_base:
