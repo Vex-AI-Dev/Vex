@@ -42,15 +42,6 @@ async def call_llm(
     api_base = os.environ.get("LITELLM_API_URL") or os.environ.get("OPENAI_API_BASE")
     api_key = os.environ.get("LITELLM_API_KEY") or os.environ.get("OPENAI_API_KEY")
 
-    # When routing through a LiteLLM proxy, Anthropic-prefixed models get
-    # native routing which appends /v1/messages.  If api_base already ends
-    # with /v1 this creates /v1/v1/messages (404).  Strip the trailing /v1
-    # for Anthropic models so the path resolves correctly.
-    if api_base and model.startswith("anthropic/"):
-        api_base = api_base.rstrip("/")
-        if api_base.endswith("/v1"):
-            api_base = api_base[:-3]
-
     kwargs: Dict[str, Any] = {
         "model": model,
         "messages": messages,
