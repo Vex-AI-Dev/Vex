@@ -32,6 +32,7 @@ from engine.pipeline import verify as run_verification
 
 from app.auth import verify_api_key, verify_ingest_key
 from shared.auth import KeyInfo
+from shared.plan_limits import get_plan_config
 
 logger = logging.getLogger("agentguard.sync-gateway")
 
@@ -201,6 +202,13 @@ async def verify_endpoint(
         correction_mode = event.metadata.get("correction", "none")
         transparency = event.metadata.get("transparency", "opaque")
 
+    # Gate correction cascade behind paid plan
+    plan_config = get_plan_config(auth.plan)
+    correction_skipped = False
+    if correction_mode in ("cascade", "auto") and not plan_config.corrections_enabled:
+        correction_mode = "none"
+        correction_skipped = True
+
     config = VerificationConfig(
         pass_threshold=thresholds.get("pass_threshold", 0.8),
         flag_threshold=thresholds.get("flag_threshold", 0.5),
@@ -245,6 +253,8 @@ async def verify_endpoint(
             corrected=corrected,
             original_output=event.output if correction_attempts and transparency == "transparent" else None,
             correction_attempts=attempt_responses,
+            correction_skipped=correction_skipped,
+            correction_skipped_reason="upgrade_required" if correction_skipped else None,
         )
 
     except asyncio.TimeoutError:

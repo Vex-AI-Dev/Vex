@@ -124,3 +124,5 @@ class VerifyResponse(BaseModel):
     corrected: bool = False
     original_output: Optional[Any] = None
     correction_attempts: Optional[List[CorrectionAttemptResponse]] = None
+    correction_skipped: bool = False
+    correction_skipped_reason: Optional[str] = None
