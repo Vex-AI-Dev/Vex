@@ -16,26 +16,69 @@ class PlanConfig:
     """Immutable configuration for a single pricing plan."""
 
     # Monthly quotas
+    # ──────────────
+    # Observations: async fire-and-forget events sent via POST /v1/ingest
+    # or the SDK's async mode. These are telemetry records of agent executions
+    # (input, output, latency, steps) stored for dashboards and analytics.
+    # No LLM scoring is performed — just data collection.
     observations_per_month: int
+
+    # Verifications: synchronous POST /v1/verify calls where the output is
+    # scored in real-time by the verification engine (schema validation,
+    # hallucination detection, drift scoring, coherence checking). Each call
+    # invokes 2-4 LLM checks and returns a confidence score + pass/flag/block
+    # action. Significantly more expensive than observations due to LLM costs.
     verifications_per_month: int
 
-    # Rate limit (overrides per-key RPM if lower)
+    # Rate limit
+    # ──────────
+    # Maximum requests per minute across all endpoints for this org.
+    # Applied as a sliding 60-second window. If a per-key RPM is also set,
+    # the effective limit is min(per_key_rpm, plan_max_rpm).
+    # Exceeding this returns HTTP 429 with a Retry-After header.
     max_rpm: int
 
     # Resource limits
+    # ───────────────
+    # Max agents: the number of distinct agent_id values this org can use.
+    # Each unique agent_id seen in ingest/verify requests counts toward this
+    # limit. -1 means unlimited. Exceeding this returns HTTP 403.
     max_agents: int
-    max_seats: int
 
     # Feature flags
+    # ─────────────
+    # Corrections: when enabled, the verification engine can auto-correct
+    # failing outputs using a 3-layer cascade (L1 Repair → L2 Constrained
+    # Regen → L3 Full Reprompt). Each layer uses progressively stronger LLM
+    # models. When disabled, correction=cascade requests are silently skipped
+    # and the response includes correction_skipped=true with
+    # correction_skipped_reason="upgrade_required".
     corrections_enabled: bool
+
+    # Webhook alerts: when enabled, the alert service can deliver
+    # notifications to user-configured HTTP webhook endpoints for events
+    # like block actions, confidence drops, or anomaly detection.
     webhook_alerts: bool
+
+    # Slack alerts: when enabled, the alert service can post notifications
+    # directly to Slack channels via incoming webhooks for real-time
+    # team visibility into agent health issues.
     slack_alerts: bool
 
-    # Data retention (days)
+    # Data retention
+    # ──────────────
+    # Number of days execution records, check results, and correction
+    # attempts are retained in the database before automatic deletion.
+    # After this period, data is permanently purged. Longer retention
+    # enables deeper historical analysis and trend tracking.
     retention_days: int
 
-    # Overage: if True, requests beyond quota are allowed (billed).
-    # If False, requests beyond quota are rejected (429).
+    # Overage handling
+    # ────────────────
+    # When True: requests beyond the monthly quota are allowed to proceed
+    # and the excess usage is billed at the per-unit overage rate.
+    # When False: requests beyond the monthly quota are hard-rejected with
+    # HTTP 429 and a message to upgrade. No overage charges are incurred.
     overage_allowed: bool
 
 
@@ -45,7 +88,6 @@ PLAN_LIMITS: Dict[str, PlanConfig] = {
         verifications_per_month=500,
         max_rpm=100,
         max_agents=3,
-        max_seats=1,
         corrections_enabled=False,
         webhook_alerts=False,
         slack_alerts=False,
@@ -57,7 +99,6 @@ PLAN_LIMITS: Dict[str, PlanConfig] = {
         verifications_per_month=10_000,
         max_rpm=1_000,
         max_agents=15,
-        max_seats=5,
         corrections_enabled=True,
         webhook_alerts=True,
         slack_alerts=False,
@@ -69,7 +110,6 @@ PLAN_LIMITS: Dict[str, PlanConfig] = {
         verifications_per_month=100_000,
         max_rpm=5_000,
         max_agents=-1,  # unlimited
-        max_seats=15,
         corrections_enabled=True,
         webhook_alerts=True,
         slack_alerts=True,
@@ -81,7 +121,6 @@ PLAN_LIMITS: Dict[str, PlanConfig] = {
         verifications_per_month=1_000_000,
         max_rpm=10_000,
         max_agents=-1,  # unlimited
-        max_seats=-1,    # unlimited
         corrections_enabled=True,
         webhook_alerts=True,
         slack_alerts=True,
