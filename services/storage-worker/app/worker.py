@@ -14,6 +14,7 @@ it can be tested in isolation.
 
 import json
 import logging
+import uuid
 from typing import Any, Dict, Optional
 
 from sqlalchemy import text
@@ -123,11 +124,48 @@ def process_event(
             "metadata": json.dumps(event.metadata),
         },
     )
+    # Write tool calls to relational storage
+    tool_calls = [s for s in (event.steps or []) if s.step_type == "tool_call"]
+    for seq, step in enumerate(tool_calls):
+        step_input = step.input
+        step_output = step.output
+        # Ensure JSON-serializable values
+        if isinstance(step_input, str):
+            step_input = step_input
+        if isinstance(step_output, str):
+            step_output = step_output
+        db_session.execute(
+            text("""
+                INSERT INTO tool_calls (
+                    id, execution_id, org_id, agent_id,
+                    tool_name, input, output, duration_ms,
+                    sequence, timestamp
+                ) VALUES (
+                    :id, :execution_id, :org_id, :agent_id,
+                    :tool_name, :input, :output, :duration_ms,
+                    :sequence, :timestamp
+                )
+            """),
+            {
+                "id": str(uuid.uuid4()),
+                "execution_id": event.execution_id,
+                "org_id": org_id,
+                "agent_id": event.agent_id,
+                "tool_name": step.name,
+                "input": json.dumps(step_input) if step_input is not None else None,
+                "output": json.dumps(step_output) if step_output is not None else None,
+                "duration_ms": step.duration_ms,
+                "sequence": seq,
+                "timestamp": step.timestamp or event.timestamp,
+            },
+        )
+
     db_session.commit()
     logger.info(
-        "Stored execution %s for agent %s",
+        "Stored execution %s for agent %s (%d tool calls)",
         event.execution_id,
         event.agent_id,
+        len(tool_calls),
     )
 
     return {

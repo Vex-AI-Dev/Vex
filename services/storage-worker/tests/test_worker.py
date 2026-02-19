@@ -1,7 +1,7 @@
 import json
 import pytest
 from unittest.mock import MagicMock
-from shared.models import IngestEvent
+from shared.models import IngestEvent, StepRecord
 from app.worker import process_event, process_verified_event
 
 
@@ -274,3 +274,62 @@ def test_process_verified_event_preserves_correction_metadata(mock_db_session):
     }
     result = process_verified_event(event, mock_db_session)
     assert result["corrected"] is True
+
+
+# --- Tool calls persistence tests ---
+
+
+def test_process_event_stores_tool_calls(mock_s3, mock_db_session):
+    """Tool call steps are written to tool_calls table."""
+    event = IngestEvent(
+        execution_id="exec-tools-1",
+        agent_id="tool-bot",
+        task="Search and summarize",
+        input="query",
+        output="result",
+        steps=[
+            StepRecord(step_type="tool_call", name="search", input="q1", output="r1"),
+            StepRecord(step_type="tool_call", name="read_file", input="f1", output="content"),
+            StepRecord(step_type="llm", name="gpt-4", input="prompt", output="response"),
+        ],
+    )
+    process_event(event, s3_client=mock_s3, db_session=mock_db_session, org_id="org-1")
+
+    # 2 base calls (agent upsert + execution insert) + 2 tool_call inserts = 4
+    assert mock_db_session.execute.call_count == 4
+
+    # Check the tool_call insert params (3rd and 4th calls)
+    tool_call_1 = mock_db_session.execute.call_args_list[2][0][1]
+    assert tool_call_1["tool_name"] == "search"
+    assert tool_call_1["sequence"] == 0
+    assert tool_call_1["agent_id"] == "tool-bot"
+
+    tool_call_2 = mock_db_session.execute.call_args_list[3][0][1]
+    assert tool_call_2["tool_name"] == "read_file"
+    assert tool_call_2["sequence"] == 1
+
+
+def test_process_event_no_steps_no_tool_calls(sample_event, mock_s3, mock_db_session):
+    """Events without steps should not insert any tool_calls rows."""
+    process_event(sample_event, s3_client=mock_s3, db_session=mock_db_session, org_id="org-1")
+    # Only 2 base calls (agent upsert + execution insert)
+    assert mock_db_session.execute.call_count == 2
+
+
+def test_process_event_filters_non_tool_steps(mock_s3, mock_db_session):
+    """Only step_type='tool_call' steps are stored in tool_calls."""
+    event = IngestEvent(
+        execution_id="exec-mixed",
+        agent_id="mixed-bot",
+        task="Mixed steps",
+        input="in",
+        output="out",
+        steps=[
+            StepRecord(step_type="llm", name="gpt-4", input="p", output="r"),
+            StepRecord(step_type="tool_call", name="search", input="q", output="r"),
+            StepRecord(step_type="llm", name="gpt-4", input="p2", output="r2"),
+        ],
+    )
+    process_event(event, s3_client=mock_s3, db_session=mock_db_session, org_id="org-1")
+    # 2 base + 1 tool_call = 3
+    assert mock_db_session.execute.call_count == 3
