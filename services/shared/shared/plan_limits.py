@@ -8,7 +8,7 @@ column value in the ``organizations`` table.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Any, Dict, Optional
 
 
 @dataclass(frozen=True)
@@ -76,12 +76,31 @@ PLAN_LIMITS: Dict[str, PlanConfig] = {
         retention_days=90,
         overage_allowed=True,
     ),
+    "enterprise": PlanConfig(
+        observations_per_month=10_000_000,
+        verifications_per_month=1_000_000,
+        max_rpm=10_000,
+        max_agents=-1,  # unlimited
+        max_seats=-1,    # unlimited
+        corrections_enabled=True,
+        webhook_alerts=True,
+        slack_alerts=True,
+        retention_days=365,
+        overage_allowed=True,
+    ),
 }
 
 
-def get_plan_config(plan: str) -> PlanConfig:
+def get_plan_config(plan: str, overrides: Optional[Dict[str, Any]] = None) -> PlanConfig:
     """Return the PlanConfig for the given plan name.
 
     Falls back to ``"free"`` for unknown plan values.
+    If *overrides* is provided (from ``accounts.vex_plan_overrides``),
+    those values are merged on top of the plan defaults.
     """
-    return PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+    base = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+    if not overrides:
+        return base
+    from dataclasses import asdict
+    merged = {**asdict(base), **{k: v for k, v in overrides.items() if v is not None}}
+    return PlanConfig(**merged)

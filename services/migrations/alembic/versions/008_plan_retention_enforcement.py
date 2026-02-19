@@ -1,13 +1,17 @@
 """Add plan-based data retention enforcement.
 
 Creates a PL/pgSQL function that deletes execution and check_result
-data older than each organisation's plan allows:
+data older than the specified retention window for a given organisation.
 
-  free  →  7 days
-  pro   → 30 days
-  team  → 90 days
+The function accepts explicit parameters (org ID and retention days)
+rather than reading plan data from the organisations table. Plan data
+now lives in Supabase, so the Python retention cron script is responsible
+for querying Supabase for each org's plan, resolving the corresponding
+retention period, and invoking this function once per organisation.
 
-Designed to be called periodically by pg_cron or an external scheduler.
+  enforce_plan_retention(p_org_id TEXT, p_retention_days INT)
+
+Designed to be called by the Python retention cron script.
 
 Revision ID: 008
 Revises: 007
@@ -27,33 +31,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.execute("""
-        CREATE OR REPLACE FUNCTION enforce_plan_retention()
+        CREATE OR REPLACE FUNCTION enforce_plan_retention(
+            p_org_id TEXT,
+            p_retention_days INT
+        )
         RETURNS void AS $$
-        DECLARE
-            org RECORD;
-            retention_days INT;
         BEGIN
-            FOR org IN SELECT org_id, plan FROM organizations LOOP
-                retention_days := CASE org.plan
-                    WHEN 'team' THEN 90
-                    WHEN 'pro' THEN 30
-                    ELSE 7
-                END;
+            DELETE FROM check_results cr
+            USING executions e
+            WHERE cr.execution_id = e.execution_id
+              AND e.org_id = p_org_id
+              AND cr.timestamp < NOW() - (p_retention_days || ' days')::INTERVAL;
 
-                DELETE FROM check_results cr
-                USING executions e
-                WHERE cr.execution_id = e.execution_id
-                  AND e.org_id = org.org_id
-                  AND cr.timestamp < NOW() - (retention_days || ' days')::INTERVAL;
-
-                DELETE FROM executions
-                WHERE org_id = org.org_id
-                  AND timestamp < NOW() - (retention_days || ' days')::INTERVAL;
-            END LOOP;
+            DELETE FROM executions
+            WHERE org_id = p_org_id
+              AND timestamp < NOW() - (p_retention_days || ' days')::INTERVAL;
         END;
         $$ LANGUAGE plpgsql;
     """)
 
 
 def downgrade() -> None:
-    op.execute("DROP FUNCTION IF EXISTS enforce_plan_retention();")
+    op.execute("DROP FUNCTION IF EXISTS enforce_plan_retention(TEXT, INT);")

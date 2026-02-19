@@ -16,6 +16,7 @@ DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://agentguard:agentguard_dev@localhost:5432/agentguard",
 )
+SUPABASE_DATABASE_URL = os.environ.get("SUPABASE_DATABASE_URL")
 
 _validator: Optional[KeyValidator] = None
 
@@ -27,6 +28,7 @@ def get_validator() -> KeyValidator:
         _validator = KeyValidator(
             database_url=DATABASE_URL,
             required_scope="ingest",
+            supabase_database_url=SUPABASE_DATABASE_URL,
         )
     return _validator
 

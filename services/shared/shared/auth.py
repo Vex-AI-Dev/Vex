@@ -55,6 +55,7 @@ class _CachedKey:
     expires_at: Optional[datetime]
     revoked: bool
     plan: str = "free"
+    plan_overrides: Optional[Dict] = None
     cached_at: float = field(default_factory=time.monotonic)
 
 
@@ -78,6 +79,7 @@ class KeyValidator:
         self,
         database_url: str,
         required_scope: str,
+        supabase_database_url: Optional[str] = None,
         cache_ttl_s: float = 60.0,
         flush_interval_s: float = 60.0,
     ) -> None:
@@ -92,6 +94,14 @@ class KeyValidator:
             max_overflow=3,
             pool_pre_ping=True,
         )
+        self._supabase_engine: Optional[Engine] = None
+        if supabase_database_url:
+            self._supabase_engine = create_engine(
+                supabase_database_url,
+                pool_size=1,
+                max_overflow=2,
+                pool_pre_ping=True,
+            )
         self._required_scope = required_scope
         self._cache_ttl_s = cache_ttl_s
         self._flush_interval_s = flush_interval_s
@@ -109,11 +119,15 @@ class KeyValidator:
         self._usage_lock = Lock()
         self._last_flush = time.monotonic()
 
+        # Known agent IDs per org (avoids DB query on every request)
+        self._known_agents: Dict[str, set] = {}
+        self._known_agents_lock = Lock()
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def validate(self, api_key: str) -> KeyInfo:
+    def validate(self, api_key: str, agent_id: Optional[str] = None) -> KeyInfo:
         """Validate an API key and return org information.
 
         This method is synchronous.  When used as a FastAPI dependency
@@ -166,7 +180,10 @@ class KeyValidator:
         # 7. Check monthly quota
         self._check_quota(entry)
 
-        # 8. Track usage (batched)
+        # 8. Check agent limit
+        self._check_agent_limit(entry, agent_id)
+
+        # 9. Track usage (batched)
         self._track_usage(entry.key_id)
 
         return KeyInfo(
@@ -220,13 +237,48 @@ class KeyValidator:
             logger.warning("Failed to flush last_used_at updates", exc_info=True)
 
     def close(self) -> None:
-        """Flush pending usage and dispose of the DB engine."""
+        """Flush pending usage and dispose of the DB engine(s)."""
         self.flush_usage()
         self._engine.dispose()
+        if self._supabase_engine:
+            self._supabase_engine.dispose()
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _query_plan_from_supabase(self, account_slug: str) -> tuple:
+        """Query plan data from Supabase accounts table.
+
+        Returns a ``(plan, plan_overrides)`` tuple.  Falls back to
+        ``("free", None)`` if the Supabase engine is not configured,
+        the slug is not found, or any error occurs.
+        """
+        if self._supabase_engine is None:
+            return ("free", None)
+        try:
+            with self._supabase_engine.connect() as conn:
+                result = conn.execute(
+                    text(
+                        "SELECT vex_plan, vex_plan_overrides FROM accounts "
+                        "WHERE slug = :slug AND is_personal_account = false LIMIT 1"
+                    ),
+                    {"slug": account_slug},
+                )
+                row = result.fetchone()
+                if row is None:
+                    return ("free", None)
+                plan = row[0] or "free"
+                overrides = row[1] if isinstance(row[1], dict) else (
+                    json.loads(row[1]) if row[1] else None
+                )
+                return (plan, overrides)
+        except Exception:
+            logger.warning(
+                "Failed to query plan from Supabase, defaulting to free",
+                exc_info=True,
+            )
+            return ("free", None)
 
     def _cache_get(self, key_hash: str) -> Optional[_CachedKey]:
         with self._cache_lock:
@@ -249,7 +301,7 @@ class KeyValidator:
                 result = conn.execute(
                     text(
                         """
-                        SELECT org_id, api_keys, plan
+                        SELECT org_id, api_keys, account_slug
                         FROM organizations
                         WHERE api_keys @> CAST(:filter AS jsonb)
                         """
@@ -266,8 +318,9 @@ class KeyValidator:
 
         org_id = row[0]
         api_keys = row[1] if isinstance(row[1], list) else json.loads(row[1])
-        plan_val = row[2] if row[2] else "free"
-        plan_config = get_plan_config(plan_val)
+        account_slug = row[2] if row[2] else org_id
+        plan_val, plan_overrides_val = self._query_plan_from_supabase(account_slug)
+        plan_config = get_plan_config(plan_val, plan_overrides_val)
 
         # Find the matching key entry in the JSONB array
         for key_entry in api_keys:
@@ -289,13 +342,57 @@ class KeyValidator:
                     expires_at=expires_at,
                     revoked=key_entry.get("revoked", False),
                     plan=plan_val,
+                    plan_overrides=plan_overrides_val,
                 )
 
         return None
 
+    def _check_agent_limit(self, entry: _CachedKey, agent_id: Optional[str]) -> None:
+        """Enforce per-plan agent limit."""
+        if agent_id is None:
+            return
+
+        plan_config = get_plan_config(entry.plan, entry.plan_overrides)
+        if plan_config.max_agents == -1:
+            return
+
+        with self._known_agents_lock:
+            known = self._known_agents.get(entry.org_id)
+            if known and agent_id in known:
+                return  # Already known, skip DB check
+
+        try:
+            with self._engine.connect() as conn:
+                agent_count = conn.execute(
+                    text("SELECT COUNT(DISTINCT agent_id) FROM agents WHERE org_id = :org_id"),
+                    {"org_id": entry.org_id},
+                ).scalar() or 0
+
+                exists = conn.execute(
+                    text("SELECT 1 FROM agents WHERE org_id = :org_id AND agent_id = :agent_id"),
+                    {"org_id": entry.org_id, "agent_id": agent_id},
+                ).fetchone()
+        except Exception:
+            logger.warning("Failed to check agent limit, allowing request", exc_info=True)
+            return
+
+        if exists:
+            with self._known_agents_lock:
+                if entry.org_id not in self._known_agents:
+                    self._known_agents[entry.org_id] = set()
+                self._known_agents[entry.org_id].add(agent_id)
+            return
+
+        if agent_count >= plan_config.max_agents:
+            raise AuthError(
+                403,
+                f"Agent limit reached ({agent_count}/{plan_config.max_agents}). "
+                f"Upgrade your plan at https://app.tryvex.dev",
+            )
+
     def _check_quota(self, entry: _CachedKey) -> None:
         """Enforce monthly quota based on organization plan."""
-        plan_config = get_plan_config(entry.plan)
+        plan_config = get_plan_config(entry.plan, entry.plan_overrides)
 
         if self._required_scope == "verify":
             monthly_limit = plan_config.verifications_per_month

@@ -17,6 +17,7 @@ DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://agentguard:agentguard_dev@localhost:5432/agentguard",
 )
+SUPABASE_DATABASE_URL = os.environ.get("SUPABASE_DATABASE_URL")
 
 _validators: Dict[str, KeyValidator] = {}
 
@@ -27,6 +28,7 @@ def _get_validator(scope: str) -> KeyValidator:
         _validators[scope] = KeyValidator(
             database_url=DATABASE_URL,
             required_scope=scope,
+            supabase_database_url=SUPABASE_DATABASE_URL,
         )
     return _validators[scope]
 
