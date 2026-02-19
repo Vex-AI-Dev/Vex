@@ -259,14 +259,14 @@ async def verify_endpoint(
 
     except asyncio.TimeoutError:
         logger.warning(
-            "Verification timed out for event %s; returning pass-through",
+            "Verification timed out for event %s; returning flag",
             event.execution_id,
             extra={"execution_id": event.execution_id, "agent_id": event.agent_id},
         )
         response = VerifyResponse(
             execution_id=event.execution_id,
             confidence=None,
-            action="pass",
+            action="flag",
             output=event.output,
             corrected=False,
         )

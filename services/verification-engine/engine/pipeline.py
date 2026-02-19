@@ -68,7 +68,7 @@ def route_action(
         "pass", "flag", or "block".
     """
     if confidence is None:
-        return "pass"
+        return "flag"
     if confidence >= pass_threshold:
         return "pass"
     if confidence >= flag_threshold:
