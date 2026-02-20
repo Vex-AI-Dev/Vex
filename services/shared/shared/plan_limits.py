@@ -30,6 +30,12 @@ class PlanConfig:
     # action. Significantly more expensive than observations due to LLM costs.
     verifications_per_month: int
 
+    # Corrections: monthly quota for auto-correction cascade invocations.
+    # When a verification fails and correction=cascade is requested, this
+    # counter is decremented. -1 means unlimited (full cascade available).
+    # 0 means corrections are not available on this plan.
+    corrections_per_month: int  # -1 = unlimited (full cascade)
+
     # Rate limit
     # ──────────
     # Maximum requests per minute across all endpoints for this org.
@@ -84,21 +90,35 @@ class PlanConfig:
 
 PLAN_LIMITS: Dict[str, PlanConfig] = {
     "free": PlanConfig(
-        observations_per_month=10_000,
-        verifications_per_month=500,
+        observations_per_month=1_000,
+        verifications_per_month=50,
+        corrections_per_month=0,
         max_rpm=100,
-        max_agents=3,
+        max_agents=-1,
         corrections_enabled=False,
+        webhook_alerts=False,
+        slack_alerts=False,
+        retention_days=1,
+        overage_allowed=False,
+    ),
+    "starter": PlanConfig(
+        observations_per_month=25_000,
+        verifications_per_month=1_000,
+        corrections_per_month=100,
+        max_rpm=500,
+        max_agents=-1,
+        corrections_enabled=True,
         webhook_alerts=False,
         slack_alerts=False,
         retention_days=7,
         overage_allowed=False,
     ),
     "pro": PlanConfig(
-        observations_per_month=100_000,
-        verifications_per_month=10_000,
+        observations_per_month=150_000,
+        verifications_per_month=15_000,
+        corrections_per_month=-1,
         max_rpm=1_000,
-        max_agents=15,
+        max_agents=-1,
         corrections_enabled=True,
         webhook_alerts=True,
         slack_alerts=False,
@@ -106,10 +126,11 @@ PLAN_LIMITS: Dict[str, PlanConfig] = {
         overage_allowed=True,
     ),
     "team": PlanConfig(
-        observations_per_month=1_000_000,
-        verifications_per_month=100_000,
+        observations_per_month=1_500_000,
+        verifications_per_month=150_000,
+        corrections_per_month=-1,
         max_rpm=5_000,
-        max_agents=-1,  # unlimited
+        max_agents=-1,
         corrections_enabled=True,
         webhook_alerts=True,
         slack_alerts=True,
@@ -119,8 +140,9 @@ PLAN_LIMITS: Dict[str, PlanConfig] = {
     "enterprise": PlanConfig(
         observations_per_month=10_000_000,
         verifications_per_month=1_000_000,
+        corrections_per_month=-1,
         max_rpm=10_000,
-        max_agents=-1,  # unlimited
+        max_agents=-1,
         corrections_enabled=True,
         webhook_alerts=True,
         slack_alerts=True,
