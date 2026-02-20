@@ -6,8 +6,9 @@ Evaluates user-defined rules against agent output. Supports four rule types:
 2. ``keyword`` — Flag/block if output contains any of the specified terms.
 3. ``threshold`` — Flag if a numeric metric exceeds a limit.
 4. ``llm`` — Natural-language rule evaluated by an LLM.
+5. ``tool_policy`` — Deny specific tools or cap per-execution call counts.
 
-Deterministic rules (regex, keyword, threshold) are evaluated synchronously.
+Deterministic rules (regex, keyword, threshold, tool_policy) are evaluated synchronously.
 LLM rules are evaluated asynchronously. All rules are aggregated into a
 single CheckResult.
 """
@@ -148,10 +149,58 @@ async def _eval_llm(output_str: str, condition: Dict[str, Any]) -> Dict[str, Any
     }
 
 
+def _eval_tool_policy(
+    condition: Dict[str, Any],
+    steps: Optional[List] = None,
+) -> Dict[str, Any]:
+    """Evaluate a tool_policy rule against execution steps.
+
+    Condition format:
+    - {"tool_name": "send_email", "policy": "deny"} -- deny this tool
+    - {"tool_name": "web_search", "policy": "allow", "max_calls_per_execution": 10}
+    """
+    tool_name = condition.get("tool_name", "")
+    policy = condition.get("policy", "deny")
+
+    if not steps or not tool_name:
+        return {"violated": False, "reason": "no steps or tool_name"}
+
+    tool_calls = [
+        s for s in steps
+        if getattr(s, "step_type", None) == "tool_call"
+        and getattr(s, "name", None) == tool_name
+    ]
+
+    if policy == "deny":
+        if tool_calls:
+            return {
+                "violated": True,
+                "tool_name": tool_name,
+                "call_count": len(tool_calls),
+                "reason": f"Tool '{tool_name}' is denied by policy",
+            }
+        return {"violated": False}
+
+    if policy == "allow":
+        max_calls = condition.get("max_calls_per_execution")
+        if max_calls is not None and len(tool_calls) > int(max_calls):
+            return {
+                "violated": True,
+                "tool_name": tool_name,
+                "call_count": len(tool_calls),
+                "max_allowed": int(max_calls),
+                "reason": f"Tool '{tool_name}' called {len(tool_calls)} times, max {max_calls}",
+            }
+        return {"violated": False}
+
+    return {"violated": False, "reason": f"unknown policy '{policy}'"}
+
+
 async def check(
     output: Any,
     rules: List[GuardrailRule],
     metadata: Optional[Dict[str, Any]] = None,
+    steps: Optional[List] = None,
 ) -> CheckResult:
     """Evaluate all enabled guardrail rules against the output.
 
@@ -196,6 +245,8 @@ async def check(
             result = _eval_threshold(rule.condition, metadata)
         elif rule.rule_type == "llm":
             result = await _eval_llm(output_str, rule.condition)
+        elif rule.rule_type == "tool_policy":
+            result = _eval_tool_policy(rule.condition, steps)
         else:
             result = {"violated": False, "reason": f"unknown rule_type '{rule.rule_type}'"}
 

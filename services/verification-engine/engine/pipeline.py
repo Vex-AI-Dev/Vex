@@ -135,7 +135,7 @@ async def verify(
         llm_tasks.append(coherence.check(output, conversation_history))
 
     if has_guardrails:
-        llm_tasks.append(guardrails_checker.check(output, cfg.guardrails, metadata))
+        llm_tasks.append(guardrails_checker.check(output, cfg.guardrails, metadata, steps=steps))
 
     llm_results = await asyncio.gather(*llm_tasks)
 

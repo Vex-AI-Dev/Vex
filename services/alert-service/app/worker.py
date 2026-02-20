@@ -21,8 +21,9 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy import text
 
+from app.anomaly import detect_anomalies
 from app.dedup import AlertDeduplicator
-from app.slack import deliver_slack, format_slack_message, get_slack_webhook_url
+from app.slack import deliver_slack, format_anomaly_slack_message, format_slack_message, get_slack_webhook_url
 from app.webhook import deliver
 from shared.plan_limits import get_plan_config
 
@@ -91,6 +92,9 @@ async def process_verified_event(
         Alert record dict if an alert was created, None if skipped.
     """
     action = event_data.get("action", "pass")
+
+    # Run anomaly detection on ALL events (including pass)
+    await _process_anomalies(event_data, db_session)
 
     # Skip pass events — only alert on flag/block
     if action == "pass":
@@ -221,3 +225,112 @@ async def process_verified_event(
         "delivered": any_delivered,
         "slack_delivered": slack_delivered,
     }
+
+
+async def _process_anomalies(
+    event_data: Dict[str, Any],
+    db_session: object,
+) -> None:
+    """Run anomaly detection and create/deliver alerts for any anomalies found."""
+    agent_id = event_data.get("agent_id", "")
+    execution_id = event_data.get("execution_id", "")
+    org_id = event_data.get("org_id", DEFAULT_ORG)
+
+    try:
+        anomalies = detect_anomalies(event_data, db_session)
+    except Exception:
+        logger.warning("Anomaly detection failed for %s", execution_id, exc_info=True)
+        return
+
+    if not anomalies:
+        return
+
+    plan = _get_org_plan(org_id, db_session)
+    plan_config = get_plan_config(plan)
+    now = datetime.now(timezone.utc)
+
+    for anomaly in anomalies:
+        alert_type = anomaly["alert_type"]
+
+        should_send, _ = _deduplicator.should_deliver(agent_id, alert_type)
+        if not should_send:
+            continue
+
+        alert_id = str(uuid.uuid4())
+        delivered = False
+        slack_delivered = False
+        webhook_url = None
+        response_status = None
+        delivery_attempts = 0
+
+        if plan_config.webhook_alerts:
+            webhook_url = get_webhook_url(agent_id)
+            if webhook_url:
+                payload = {
+                    "event": "anomaly.detected",
+                    "alert_id": alert_id,
+                    "agent_id": agent_id,
+                    "execution_id": execution_id,
+                    "alert_type": alert_type,
+                    "severity": anomaly["severity"],
+                    "details": anomaly["details"],
+                }
+                delivered, response_status = await deliver(webhook_url, payload)
+                delivery_attempts = 3 if not delivered else 1
+
+        if plan_config.slack_alerts:
+            slack_url = get_slack_webhook_url(agent_id)
+            if slack_url:
+                slack_payload = format_anomaly_slack_message(
+                    alert_id=alert_id,
+                    agent_id=agent_id,
+                    execution_id=execution_id,
+                    alert_type=alert_type,
+                    severity=anomaly["severity"],
+                    details=anomaly["details"],
+                    dashboard_base_url=DASHBOARD_BASE_URL,
+                )
+                slack_delivered, _ = await deliver_slack(slack_url, slack_payload)
+
+        any_delivered = delivered or slack_delivered
+
+        db_session.execute(
+            text("""
+                INSERT INTO alerts (
+                    alert_id, execution_id, agent_id, org_id,
+                    alert_type, severity, delivered,
+                    webhook_url, delivery_attempts, last_attempt_at, response_status,
+                    created_at
+                ) VALUES (
+                    :alert_id, :execution_id, :agent_id, :org_id,
+                    :alert_type, :severity, :delivered,
+                    :webhook_url, :delivery_attempts, :last_attempt_at, :response_status,
+                    :created_at
+                )
+            """),
+            {
+                "alert_id": alert_id,
+                "execution_id": execution_id,
+                "agent_id": agent_id,
+                "org_id": org_id,
+                "alert_type": alert_type,
+                "severity": anomaly["severity"],
+                "delivered": any_delivered,
+                "webhook_url": webhook_url,
+                "delivery_attempts": delivery_attempts,
+                "last_attempt_at": now if (webhook_url or slack_delivered) else None,
+                "response_status": response_status,
+                "created_at": now,
+            },
+        )
+        db_session.commit()
+
+        logger.info(
+            "Anomaly alert %s created: %s (z=%.2f) for execution %s (delivered=%s, slack=%s)",
+            alert_id,
+            alert_type,
+            anomaly["details"].get("z_score", 0),
+            execution_id,
+            delivered,
+            slack_delivered,
+        )

@@ -109,6 +109,65 @@ def format_slack_message(
     return {"blocks": blocks}
 
 
+def format_anomaly_slack_message(
+    alert_id: str,
+    agent_id: str,
+    execution_id: str,
+    alert_type: str,
+    severity: str,
+    details: Dict[str, Any],
+    dashboard_base_url: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build a Slack Block Kit message for a cost/latency anomaly alert."""
+    emoji = _severity_emoji(severity)
+    metric = details.get("metric", "unknown")
+    value = details.get("value", 0)
+    mean = details.get("mean_24h", 0)
+    z_score = details.get("z_score", 0)
+
+    metric_label = "Cost" if "cost" in metric else "Latency"
+    unit = "" if "cost" in metric else "ms"
+
+    header_text = f"{emoji} *{metric_label} Anomaly* detected for agent *{agent_id}*"
+
+    blocks: List[Dict[str, Any]] = [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": f"{metric_label} Anomaly Detected", "emoji": True},
+        },
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": header_text},
+        },
+        {
+            "type": "section",
+            "fields": [
+                {"type": "mrkdwn", "text": f"*Agent:*\n{agent_id}"},
+                {"type": "mrkdwn", "text": f"*Severity:*\n{severity}"},
+                {"type": "mrkdwn", "text": f"*Current Value:*\n{value}{unit}"},
+                {"type": "mrkdwn", "text": f"*24h Mean:*\n{mean}{unit}"},
+                {"type": "mrkdwn", "text": f"*Z-Score:*\n{z_score}"},
+                {"type": "mrkdwn", "text": f"*Execution:*\n`{execution_id}`"},
+            ],
+        },
+    ]
+
+    if dashboard_base_url:
+        blocks.append({
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "View in Dashboard"},
+                    "url": f"{dashboard_base_url}/executions/{execution_id}",
+                },
+            ],
+        })
+
+    blocks.append({"type": "divider"})
+    return {"blocks": blocks}
+
+
 async def deliver_slack(
     url: str,
     payload: Dict[str, Any],
