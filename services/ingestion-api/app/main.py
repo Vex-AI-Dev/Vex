@@ -1,4 +1,4 @@
-"""FastAPI application factory for the AgentGuard Ingestion API.
+"""FastAPI application factory for the Vex Ingestion API.
 
 The service receives agent execution telemetry from the SDK and pushes
 events onto a Redis Stream (``executions.raw``) for downstream
@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """Build and return the configured FastAPI application instance."""
     app = FastAPI(
-        title="AgentGuard Ingestion API",
+        title="Vex Ingestion API",
         version="0.1.0",
         lifespan=lifespan,
     )

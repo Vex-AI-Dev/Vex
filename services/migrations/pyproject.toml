@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agentguard-migrations"
+name = "vex-migrations"
 version = "0.1.0"
-description = "Database migrations for AgentGuard"
+description = "Database migrations for Vex"
 requires-python = ">=3.9"
 dependencies = [
     "alembic>=1.12.0",

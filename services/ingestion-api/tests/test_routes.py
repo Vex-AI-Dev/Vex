@@ -13,7 +13,7 @@ def test_ingest_single_event(client, mock_redis):
     response = client.post(
         "/v1/ingest",
         json=event,
-        headers={"X-AgentGuard-Key": "ag_test_key"},
+        headers={"X-Vex-Key": "ag_test_key"},
     )
     assert response.status_code == 202
     assert "execution_id" in response.json()
@@ -31,7 +31,7 @@ def test_ingest_batch(client, mock_redis):
     response = client.post(
         "/v1/ingest/batch",
         json=events,
-        headers={"X-AgentGuard-Key": "ag_test_key"},
+        headers={"X-Vex-Key": "ag_test_key"},
     )
     assert response.status_code == 202
     data = response.json()
@@ -59,7 +59,7 @@ def test_ingest_rejects_invalid_payload(client):
     response = client.post(
         "/v1/ingest",
         json={"bad": "data"},
-        headers={"X-AgentGuard-Key": "ag_test_key"},
+        headers={"X-Vex-Key": "ag_test_key"},
     )
     assert response.status_code == 422
 
@@ -73,6 +73,6 @@ def test_batch_rejects_over_50_events(client):
     response = client.post(
         "/v1/ingest/batch",
         json=events,
-        headers={"X-AgentGuard-Key": "ag_test_key"},
+        headers={"X-Vex-Key": "ag_test_key"},
     )
     assert response.status_code == 422

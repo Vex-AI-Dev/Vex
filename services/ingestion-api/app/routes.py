@@ -1,4 +1,4 @@
-"""API route definitions for the AgentGuard Ingestion API.
+"""API route definitions for the Vex Ingestion API.
 
 Provides:
 - ``GET /health`` -- service health check.

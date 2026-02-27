@@ -1,4 +1,4 @@
-"""Tests for the AgentGuard Dashboard API WebSocket service."""
+"""Tests for the Vex Dashboard API WebSocket service."""
 
 import asyncio
 import json

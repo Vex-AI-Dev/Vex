@@ -1,4 +1,4 @@
-"""Alembic environment configuration for AgentGuard.
+"""Alembic environment configuration for Vex.
 
 Reads DATABASE_URL from the environment variable, falling back to the
 value configured in alembic.ini.  In online mode the TimescaleDB extension

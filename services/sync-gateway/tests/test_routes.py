@@ -71,7 +71,7 @@ async def test_verify_returns_result(client, mock_redis):
                 "output": "world",
                 "task": "greet user",
             },
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -98,7 +98,7 @@ async def test_verify_timeout_returns_passthrough(client, mock_redis):
                 "input": "hello",
                 "output": "world",
             },
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -125,7 +125,7 @@ async def test_verify_emits_redis_events(client, mock_redis):
                 "input": "hello",
                 "output": "world",
             },
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -190,7 +190,7 @@ async def test_verify_forwards_conversation_history(client, mock_redis):
                     }
                 ],
             },
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -224,7 +224,7 @@ async def test_verify_with_threshold_config(client, mock_redis):
                     }
                 },
             },
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -258,7 +258,7 @@ async def test_verify_no_correction_unchanged(client, mock_redis):
                 "output": "world",
                 "metadata": {"correction": "none"},
             },
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -300,7 +300,7 @@ async def test_verify_correction_layer1_succeeds(client, mock_redis):
             "/v1/verify",
             json={"agent_id": "test-bot", "input": "hello", "output": '{"revnue": 5200000}',
                   "metadata": {"correction": "cascade"}},
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -339,7 +339,7 @@ async def test_verify_correction_escalates_l1_to_l2(client, mock_redis):
             "/v1/verify",
             json={"agent_id": "test-bot", "input": "hello", "output": "broken",
                   "metadata": {"correction": "cascade"}},
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -370,7 +370,7 @@ async def test_verify_correction_all_fail_blocks(client, mock_redis):
             "/v1/verify",
             json={"agent_id": "test-bot", "input": "hello", "output": "bad output",
                   "metadata": {"correction": "cascade"}},
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -390,7 +390,7 @@ async def test_verify_correction_timeout_passthrough(client, mock_redis):
             "/v1/verify",
             json={"agent_id": "test-bot", "input": "hello", "output": "world",
                   "metadata": {"correction": "cascade"}},
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -426,7 +426,7 @@ async def test_verify_correction_uses_original_output(client, mock_redis):
             "/v1/verify",
             json={"agent_id": "test-bot", "input": "hello", "output": original_output,
                   "metadata": {"correction": "cascade"}},
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert all(c == original_output for c in correction_calls)
@@ -453,7 +453,7 @@ async def test_verify_correction_emits_redis_with_correction_metadata(client, mo
             "/v1/verify",
             json={"agent_id": "test-bot", "input": "hello", "output": "broken",
                   "metadata": {"correction": "cascade"}},
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -483,7 +483,7 @@ async def test_verify_pass_skips_correction(client, mock_redis):
             "/v1/verify",
             json={"agent_id": "test-bot", "input": "hello", "output": "good output",
                   "metadata": {"correction": "cascade"}},
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -521,7 +521,7 @@ async def test_verify_correction_improved_but_not_pass(client, mock_redis):
             "/v1/verify",
             json={"agent_id": "test-bot", "input": "hello", "output": "bad output",
                   "metadata": {"correction": "cascade", "transparency": "transparent"}},
-            headers={"X-AgentGuard-Key": "test-key"},
+            headers={"X-Vex-Key": "test-key"},
         )
 
     assert response.status_code == 200
@@ -546,7 +546,7 @@ async def test_ingest_single_event(client, mock_redis):
     response = await client.post(
         "/v1/ingest",
         json=event,
-        headers={"X-AgentGuard-Key": "test-key"},
+        headers={"X-Vex-Key": "test-key"},
     )
     assert response.status_code == 202
     data = response.json()
@@ -567,7 +567,7 @@ async def test_ingest_batch(client, mock_redis):
     response = await client.post(
         "/v1/ingest/batch",
         json=events,
-        headers={"X-AgentGuard-Key": "test-key"},
+        headers={"X-Vex-Key": "test-key"},
     )
     assert response.status_code == 202
     data = response.json()
@@ -581,7 +581,7 @@ async def test_ingest_rejects_invalid_payload(client):
     response = await client.post(
         "/v1/ingest",
         json={"bad": "data"},
-        headers={"X-AgentGuard-Key": "test-key"},
+        headers={"X-Vex-Key": "test-key"},
     )
     assert response.status_code == 422
 
@@ -592,6 +592,6 @@ async def test_batch_rejects_over_50_events(client):
     response = await client.post(
         "/v1/ingest/batch",
         json=events,
-        headers={"X-AgentGuard-Key": "test-key"},
+        headers={"X-Vex-Key": "test-key"},
     )
     assert response.status_code == 422

@@ -1,4 +1,4 @@
-"""API key validation for AgentGuard backend services.
+"""API key validation for Vex backend services.
 
 Provides ``KeyValidator``, a shared authentication module used by the
 sync gateway and ingestion API to validate incoming API keys against

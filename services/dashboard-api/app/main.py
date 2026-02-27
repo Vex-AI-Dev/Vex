@@ -1,4 +1,4 @@
-"""FastAPI application factory for the AgentGuard Dashboard API.
+"""FastAPI application factory for the Vex Dashboard API.
 
 Provides:
 - ``GET /health`` -- service health check.
@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """Build and return the configured FastAPI application instance."""
     app = FastAPI(
-        title="AgentGuard Dashboard API",
+        title="Vex Dashboard API",
         version="0.1.0",
         lifespan=lifespan,
     )

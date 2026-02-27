@@ -1,4 +1,4 @@
-"""FastAPI application factory for the AgentGuard API Gateway.
+"""FastAPI application factory for the Vex API Gateway.
 
 Serves as the unified entry point for the SDK.  Handles both synchronous
 verification (``/v1/verify``) and async event ingestion (``/v1/ingest``).
@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """Build and return the configured FastAPI application instance."""
     app = FastAPI(
-        title="AgentGuard API Gateway",
+        title="Vex API Gateway",
         version="0.1.0",
         lifespan=lifespan,
     )

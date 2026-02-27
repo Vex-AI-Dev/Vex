@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agentguard-sync-gateway"
+name = "vex-sync-gateway"
 version = "0.1.0"
 requires-python = ">=3.9"
 dependencies = [

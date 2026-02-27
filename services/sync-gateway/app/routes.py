@@ -1,4 +1,4 @@
-"""API routes for the AgentGuard API Gateway.
+"""API routes for the Vex API Gateway.
 
 Provides:
 - ``GET /health`` -- service health check.

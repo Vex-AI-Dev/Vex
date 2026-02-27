@@ -1,4 +1,4 @@
-"""Shared Pydantic models for AgentGuard backend services.
+"""Shared Pydantic models for Vex backend services.
 
 These models define the API contract between the SDK and backend services.
 They mirror SDK types (StepRecord, ExecutionEvent -> IngestEvent) for

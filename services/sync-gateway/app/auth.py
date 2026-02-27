@@ -1,4 +1,4 @@
-"""API key validation dependencies for the AgentGuard API Gateway.
+"""API key validation dependencies for the Vex API Gateway.
 
 Uses the shared ``KeyValidator`` to authenticate incoming requests
 against the ``organizations.api_keys`` JSONB column.  Provides separate

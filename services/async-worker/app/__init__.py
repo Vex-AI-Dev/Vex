@@ -1,4 +1,4 @@
-"""AgentGuard Async Verification Worker.
+"""Vex Async Verification Worker.
 
 Consumes execution events from the ``executions.raw`` Redis Stream,
 runs verification via the engine pipeline, and publishes verified
