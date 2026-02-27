@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 # Add the storage-worker service root to the path so that
 # `from app.worker import ...` resolves correctly when tests

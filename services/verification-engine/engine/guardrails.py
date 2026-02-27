@@ -15,7 +15,7 @@ single CheckResult.
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from engine.llm_client import call_llm
 from engine.models import CheckResult, GuardrailRule
@@ -38,11 +38,12 @@ def _output_as_str(output: Any) -> str:
         return output
     if isinstance(output, dict):
         import json
+
         return json.dumps(output, default=str)
     return str(output)
 
 
-def _eval_regex(output_str: str, condition: Dict[str, Any]) -> Dict[str, Any]:
+def _eval_regex(output_str: str, condition: dict[str, Any]) -> dict[str, Any]:
     """Evaluate a regex rule. Returns result dict with 'violated' and 'matches'."""
     pattern = condition.get("pattern", "")
     if not pattern:
@@ -60,7 +61,7 @@ def _eval_regex(output_str: str, condition: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _eval_keyword(output_str: str, condition: Dict[str, Any]) -> Dict[str, Any]:
+def _eval_keyword(output_str: str, condition: dict[str, Any]) -> dict[str, Any]:
     """Evaluate a keyword blocklist rule."""
     keywords = condition.get("keywords", [])
     if not keywords:
@@ -82,9 +83,9 @@ def _eval_keyword(output_str: str, condition: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _eval_threshold(
-    condition: Dict[str, Any],
-    metadata: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    condition: dict[str, Any],
+    metadata: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """Evaluate a threshold rule against execution metadata."""
     metric = condition.get("metric", "")
     operator = condition.get("operator", ">")
@@ -127,17 +128,13 @@ def _eval_threshold(
     }
 
 
-async def _eval_llm(output_str: str, condition: Dict[str, Any]) -> Dict[str, Any]:
+async def _eval_llm(output_str: str, condition: dict[str, Any]) -> dict[str, Any]:
     """Evaluate a natural-language rule using an LLM."""
     rule_description = condition.get("description", "")
     if not rule_description:
         return {"violated": False, "reason": "empty rule description"}
 
-    prompt = (
-        f"Rule: {rule_description}\n\n"
-        f"Agent output:\n{output_str[:4000]}\n\n"
-        "Does this output violate the rule?"
-    )
+    prompt = f"Rule: {rule_description}\n\nAgent output:\n{output_str[:4000]}\n\nDoes this output violate the rule?"
 
     result = await call_llm(prompt, system=LLM_SYSTEM_PROMPT)
     if result is None:
@@ -150,9 +147,9 @@ async def _eval_llm(output_str: str, condition: Dict[str, Any]) -> Dict[str, Any
 
 
 def _eval_tool_policy(
-    condition: Dict[str, Any],
-    steps: Optional[List] = None,
-) -> Dict[str, Any]:
+    condition: dict[str, Any],
+    steps: Optional[list] = None,
+) -> dict[str, Any]:
     """Evaluate a tool_policy rule against execution steps.
 
     Condition format:
@@ -166,9 +163,7 @@ def _eval_tool_policy(
         return {"violated": False, "reason": "no steps or tool_name"}
 
     tool_calls = [
-        s for s in steps
-        if getattr(s, "step_type", None) == "tool_call"
-        and getattr(s, "name", None) == tool_name
+        s for s in steps if getattr(s, "step_type", None) == "tool_call" and getattr(s, "name", None) == tool_name
     ]
 
     if policy == "deny":
@@ -198,9 +193,9 @@ def _eval_tool_policy(
 
 async def check(
     output: Any,
-    rules: List[GuardrailRule],
-    metadata: Optional[Dict[str, Any]] = None,
-    steps: Optional[List] = None,
+    rules: list[GuardrailRule],
+    metadata: Optional[dict[str, Any]] = None,
+    steps: Optional[list] = None,
 ) -> CheckResult:
     """Evaluate all enabled guardrail rules against the output.
 

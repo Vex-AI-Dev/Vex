@@ -2,14 +2,13 @@
 
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from httpx import ASGITransport, AsyncClient
-
 from app.auth import verify_api_key, verify_ingest_key
 from app.main import create_app
 from engine.models import CheckResult, VerificationResult
+from httpx import ASGITransport, AsyncClient
 from shared.auth import KeyInfo
 
 
@@ -273,7 +272,8 @@ async def test_verify_correction_layer1_succeeds(client, mock_redis):
     from engine.models import CorrectionAttempt
 
     failed_result = VerificationResult(
-        confidence=0.6, action="flag",
+        confidence=0.6,
+        action="flag",
         checks={
             "schema": CheckResult(check_type="schema", score=0.0, passed=False, details={"errors": ["missing field"]}),
             "hallucination": CheckResult(check_type="hallucination", score=1.0, passed=True),
@@ -281,7 +281,8 @@ async def test_verify_correction_layer1_succeeds(client, mock_redis):
         },
     )
     pass_result = VerificationResult(
-        confidence=0.95, action="pass",
+        confidence=0.95,
+        action="pass",
         checks={
             "schema": CheckResult(check_type="schema", score=1.0, passed=True),
             "hallucination": CheckResult(check_type="hallucination", score=1.0, passed=True),
@@ -289,17 +290,28 @@ async def test_verify_correction_layer1_succeeds(client, mock_redis):
         },
     )
     mock_correction = CorrectionAttempt(
-        layer=1, layer_name="repair", input_action="flag",
-        input_confidence=0.6, corrected_output='{"revenue": 5200000}',
-        model_used="gpt-4o-mini", latency_ms=300.0, success=True,
+        layer=1,
+        layer_name="repair",
+        input_action="flag",
+        input_confidence=0.6,
+        corrected_output='{"revenue": 5200000}',
+        model_used="gpt-4o-mini",
+        latency_ms=300.0,
+        success=True,
     )
 
-    with patch("app.routes.run_verification", new_callable=AsyncMock, side_effect=[failed_result, pass_result]), \
-         patch("app.routes.run_correction", new_callable=AsyncMock, return_value=mock_correction):
+    with (
+        patch("app.routes.run_verification", new_callable=AsyncMock, side_effect=[failed_result, pass_result]),
+        patch("app.routes.run_correction", new_callable=AsyncMock, return_value=mock_correction),
+    ):
         response = await client.post(
             "/v1/verify",
-            json={"agent_id": "test-bot", "input": "hello", "output": '{"revnue": 5200000}',
-                  "metadata": {"correction": "cascade"}},
+            json={
+                "agent_id": "test-bot",
+                "input": "hello",
+                "output": '{"revnue": 5200000}',
+                "metadata": {"correction": "cascade"},
+            },
             headers={"X-Vex-Key": "test-key"},
         )
 
@@ -315,30 +327,59 @@ async def test_verify_correction_escalates_l1_to_l2(client, mock_redis):
     """Layer 1 fails, Layer 2 succeeds → 2 attempts, corrected."""
     from engine.models import CorrectionAttempt
 
-    failed_result = VerificationResult(confidence=0.55, action="flag", checks={
-        "schema": CheckResult(check_type="schema", score=0.0, passed=False),
-        "hallucination": CheckResult(check_type="hallucination", score=1.0, passed=True),
-    })
-    still_failed = VerificationResult(confidence=0.45, action="block", checks={
-        "schema": CheckResult(check_type="schema", score=0.0, passed=False),
-    })
-    pass_result = VerificationResult(confidence=0.9, action="pass", checks={
-        "schema": CheckResult(check_type="schema", score=1.0, passed=True),
-    })
+    failed_result = VerificationResult(
+        confidence=0.55,
+        action="flag",
+        checks={
+            "schema": CheckResult(check_type="schema", score=0.0, passed=False),
+            "hallucination": CheckResult(check_type="hallucination", score=1.0, passed=True),
+        },
+    )
+    still_failed = VerificationResult(
+        confidence=0.45,
+        action="block",
+        checks={
+            "schema": CheckResult(check_type="schema", score=0.0, passed=False),
+        },
+    )
+    pass_result = VerificationResult(
+        confidence=0.9,
+        action="pass",
+        checks={
+            "schema": CheckResult(check_type="schema", score=1.0, passed=True),
+        },
+    )
 
-    l1_attempt = CorrectionAttempt(layer=1, layer_name="repair", input_action="flag",
-        corrected_output="still broken", model_used="gpt-4o-mini", latency_ms=200.0, success=True)
-    l2_attempt = CorrectionAttempt(layer=2, layer_name="constrained_regen", input_action="block",
-        corrected_output="properly fixed", model_used="gpt-4o", latency_ms=1200.0, success=True)
+    l1_attempt = CorrectionAttempt(
+        layer=1,
+        layer_name="repair",
+        input_action="flag",
+        corrected_output="still broken",
+        model_used="gpt-4o-mini",
+        latency_ms=200.0,
+        success=True,
+    )
+    l2_attempt = CorrectionAttempt(
+        layer=2,
+        layer_name="constrained_regen",
+        input_action="block",
+        corrected_output="properly fixed",
+        model_used="gpt-4o",
+        latency_ms=1200.0,
+        success=True,
+    )
 
-    with patch("app.routes.run_verification", new_callable=AsyncMock,
-               side_effect=[failed_result, still_failed, pass_result]), \
-         patch("app.routes.run_correction", new_callable=AsyncMock,
-               side_effect=[l1_attempt, l2_attempt]):
+    with (
+        patch(
+            "app.routes.run_verification",
+            new_callable=AsyncMock,
+            side_effect=[failed_result, still_failed, pass_result],
+        ),
+        patch("app.routes.run_correction", new_callable=AsyncMock, side_effect=[l1_attempt, l2_attempt]),
+    ):
         response = await client.post(
             "/v1/verify",
-            json={"agent_id": "test-bot", "input": "hello", "output": "broken",
-                  "metadata": {"correction": "cascade"}},
+            json={"agent_id": "test-bot", "input": "hello", "output": "broken", "metadata": {"correction": "cascade"}},
             headers={"X-Vex-Key": "test-key"},
         )
 
@@ -353,23 +394,43 @@ async def test_verify_correction_all_fail_blocks(client, mock_redis):
     """All correction layers fail → block."""
     from engine.models import CorrectionAttempt
 
-    failed = VerificationResult(confidence=0.4, action="block", checks={
-        "hallucination": CheckResult(check_type="hallucination", score=0.1, passed=False),
-    })
-    still_failed = VerificationResult(confidence=0.35, action="block", checks={
-        "hallucination": CheckResult(check_type="hallucination", score=0.2, passed=False),
-    })
+    failed = VerificationResult(
+        confidence=0.4,
+        action="block",
+        checks={
+            "hallucination": CheckResult(check_type="hallucination", score=0.1, passed=False),
+        },
+    )
+    still_failed = VerificationResult(
+        confidence=0.35,
+        action="block",
+        checks={
+            "hallucination": CheckResult(check_type="hallucination", score=0.2, passed=False),
+        },
+    )
 
-    attempt = CorrectionAttempt(layer=2, layer_name="constrained_regen", input_action="block",
-        corrected_output="still bad", model_used="gpt-4o", latency_ms=1000.0, success=True)
+    attempt = CorrectionAttempt(
+        layer=2,
+        layer_name="constrained_regen",
+        input_action="block",
+        corrected_output="still bad",
+        model_used="gpt-4o",
+        latency_ms=1000.0,
+        success=True,
+    )
 
-    with patch("app.routes.run_verification", new_callable=AsyncMock,
-               side_effect=[failed, still_failed, still_failed]), \
-         patch("app.routes.run_correction", new_callable=AsyncMock, return_value=attempt):
+    with (
+        patch("app.routes.run_verification", new_callable=AsyncMock, side_effect=[failed, still_failed, still_failed]),
+        patch("app.routes.run_correction", new_callable=AsyncMock, return_value=attempt),
+    ):
         response = await client.post(
             "/v1/verify",
-            json={"agent_id": "test-bot", "input": "hello", "output": "bad output",
-                  "metadata": {"correction": "cascade"}},
+            json={
+                "agent_id": "test-bot",
+                "input": "hello",
+                "output": "bad output",
+                "metadata": {"correction": "cascade"},
+            },
             headers={"X-Vex-Key": "test-key"},
         )
 
@@ -382,14 +443,14 @@ async def test_verify_correction_all_fail_blocks(client, mock_redis):
 @pytest.mark.asyncio
 async def test_verify_correction_timeout_passthrough(client, mock_redis):
     """10s timeout during correction → pass-through."""
+
     async def slow_verify(**kwargs):
         await asyncio.sleep(15)
 
     with patch("app.routes.run_verification", side_effect=slow_verify):
         response = await client.post(
             "/v1/verify",
-            json={"agent_id": "test-bot", "input": "hello", "output": "world",
-                  "metadata": {"correction": "cascade"}},
+            json={"agent_id": "test-bot", "input": "hello", "output": "world", "metadata": {"correction": "cascade"}},
             headers={"X-Vex-Key": "test-key"},
         )
 
@@ -414,18 +475,27 @@ async def test_verify_correction_uses_original_output(client, mock_redis):
     async def mock_correct(**kwargs):
         correction_calls.append(kwargs.get("output"))
         return CorrectionAttempt(
-            layer=kwargs.get("layer", 2), layer_name="constrained_regen",
-            input_action="block", corrected_output="corrected v" + str(len(correction_calls)),
-            model_used="gpt-4o", latency_ms=500.0, success=True,
+            layer=kwargs.get("layer", 2),
+            layer_name="constrained_regen",
+            input_action="block",
+            corrected_output="corrected v" + str(len(correction_calls)),
+            model_used="gpt-4o",
+            latency_ms=500.0,
+            success=True,
         )
 
-    with patch("app.routes.run_verification", new_callable=AsyncMock,
-               side_effect=[failed, still_failed, pass_result]), \
-         patch("app.routes.run_correction", side_effect=mock_correct):
-        response = await client.post(
+    with (
+        patch("app.routes.run_verification", new_callable=AsyncMock, side_effect=[failed, still_failed, pass_result]),
+        patch("app.routes.run_correction", side_effect=mock_correct),
+    ):
+        await client.post(
             "/v1/verify",
-            json={"agent_id": "test-bot", "input": "hello", "output": original_output,
-                  "metadata": {"correction": "cascade"}},
+            json={
+                "agent_id": "test-bot",
+                "input": "hello",
+                "output": original_output,
+                "metadata": {"correction": "cascade"},
+            },
             headers={"X-Vex-Key": "test-key"},
         )
 
@@ -437,22 +507,37 @@ async def test_verify_correction_emits_redis_with_correction_metadata(client, mo
     """Redis events should include correction metadata."""
     from engine.models import CorrectionAttempt
 
-    failed = VerificationResult(confidence=0.6, action="flag", checks={
-        "schema": CheckResult(check_type="schema", score=0.0, passed=False),
-    })
-    pass_result = VerificationResult(confidence=0.95, action="pass", checks={
-        "schema": CheckResult(check_type="schema", score=1.0, passed=True),
-    })
-    attempt = CorrectionAttempt(layer=1, layer_name="repair", input_action="flag",
-        corrected_output="fixed", model_used="gpt-4o-mini", latency_ms=300.0, success=True)
+    failed = VerificationResult(
+        confidence=0.6,
+        action="flag",
+        checks={
+            "schema": CheckResult(check_type="schema", score=0.0, passed=False),
+        },
+    )
+    pass_result = VerificationResult(
+        confidence=0.95,
+        action="pass",
+        checks={
+            "schema": CheckResult(check_type="schema", score=1.0, passed=True),
+        },
+    )
+    attempt = CorrectionAttempt(
+        layer=1,
+        layer_name="repair",
+        input_action="flag",
+        corrected_output="fixed",
+        model_used="gpt-4o-mini",
+        latency_ms=300.0,
+        success=True,
+    )
 
-    with patch("app.routes.run_verification", new_callable=AsyncMock,
-               side_effect=[failed, pass_result]), \
-         patch("app.routes.run_correction", new_callable=AsyncMock, return_value=attempt):
+    with (
+        patch("app.routes.run_verification", new_callable=AsyncMock, side_effect=[failed, pass_result]),
+        patch("app.routes.run_correction", new_callable=AsyncMock, return_value=attempt),
+    ):
         response = await client.post(
             "/v1/verify",
-            json={"agent_id": "test-bot", "input": "hello", "output": "broken",
-                  "metadata": {"correction": "cascade"}},
+            json={"agent_id": "test-bot", "input": "hello", "output": "broken", "metadata": {"correction": "cascade"}},
             headers={"X-Vex-Key": "test-key"},
         )
 
@@ -473,7 +558,9 @@ async def test_verify_correction_emits_redis_with_correction_metadata(client, mo
 async def test_verify_pass_skips_correction(client, mock_redis):
     """When initial verification passes, correction is NOT triggered."""
     pass_result = VerificationResult(
-        confidence=0.95, action="pass", checks={
+        confidence=0.95,
+        action="pass",
+        checks={
             "schema": CheckResult(check_type="schema", score=1.0, passed=True),
         },
     )
@@ -481,8 +568,12 @@ async def test_verify_pass_skips_correction(client, mock_redis):
     with patch("app.routes.run_verification", new_callable=AsyncMock, return_value=pass_result) as mock_verify:
         response = await client.post(
             "/v1/verify",
-            json={"agent_id": "test-bot", "input": "hello", "output": "good output",
-                  "metadata": {"correction": "cascade"}},
+            json={
+                "agent_id": "test-bot",
+                "input": "hello",
+                "output": "good output",
+                "metadata": {"correction": "cascade"},
+            },
             headers={"X-Vex-Key": "test-key"},
         )
 
@@ -499,28 +590,44 @@ async def test_verify_correction_improved_but_not_pass(client, mock_redis):
     from engine.models import CorrectionAttempt
 
     # Initial: block at 0.3
-    initial = VerificationResult(confidence=0.3, action="block", checks={
-        "hallucination": CheckResult(check_type="hallucination", score=0.1, passed=False),
-    })
+    initial = VerificationResult(
+        confidence=0.3,
+        action="block",
+        checks={
+            "hallucination": CheckResult(check_type="hallucination", score=0.1, passed=False),
+        },
+    )
     # Re-verification after correction: flag at 0.7 — better, but not pass
-    improved = VerificationResult(confidence=0.7, action="flag", checks={
-        "hallucination": CheckResult(check_type="hallucination", score=0.6, passed=True),
-    })
-
-    attempt = CorrectionAttempt(
-        layer=2, layer_name="constrained_regen", input_action="block",
-        corrected_output="improved output", model_used="gpt-4o",
-        latency_ms=1500.0, success=True,
+    improved = VerificationResult(
+        confidence=0.7,
+        action="flag",
+        checks={
+            "hallucination": CheckResult(check_type="hallucination", score=0.6, passed=True),
+        },
     )
 
-    with patch("app.routes.run_verification", new_callable=AsyncMock,
-               side_effect=[initial, improved, improved]), \
-         patch("app.routes.run_correction", new_callable=AsyncMock,
-               return_value=attempt):
+    attempt = CorrectionAttempt(
+        layer=2,
+        layer_name="constrained_regen",
+        input_action="block",
+        corrected_output="improved output",
+        model_used="gpt-4o",
+        latency_ms=1500.0,
+        success=True,
+    )
+
+    with (
+        patch("app.routes.run_verification", new_callable=AsyncMock, side_effect=[initial, improved, improved]),
+        patch("app.routes.run_correction", new_callable=AsyncMock, return_value=attempt),
+    ):
         response = await client.post(
             "/v1/verify",
-            json={"agent_id": "test-bot", "input": "hello", "output": "bad output",
-                  "metadata": {"correction": "cascade", "transparency": "transparent"}},
+            json={
+                "agent_id": "test-bot",
+                "input": "hello",
+                "output": "bad output",
+                "metadata": {"correction": "cascade", "transparency": "transparent"},
+            },
             headers={"X-Vex-Key": "test-key"},
         )
 

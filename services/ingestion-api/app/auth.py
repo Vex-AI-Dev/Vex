@@ -9,7 +9,6 @@ import os
 from typing import Optional
 
 from fastapi import HTTPException, Request
-
 from shared.auth import AuthError, KeyInfo, KeyValidator
 
 DATABASE_URL = os.environ.get(
@@ -67,4 +66,4 @@ def verify_api_key(request: Request) -> KeyInfo:
             status_code=e.status_code,
             detail=e.detail,
             headers=headers or None,
-        )
+        ) from e

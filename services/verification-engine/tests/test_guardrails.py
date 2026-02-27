@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from engine.guardrails import check
 from engine.models import GuardrailRule
 
@@ -35,7 +34,9 @@ async def test_all_disabled_rules_skips():
 @pytest.mark.asyncio
 async def test_regex_match_triggers_violation():
     rules = [
-        GuardrailRule(name="no-emails", rule_type="regex", condition={"pattern": r"\b[\w.-]+@[\w.-]+\.\w+\b"}, action="flag"),
+        GuardrailRule(
+            name="no-emails", rule_type="regex", condition={"pattern": r"\b[\w.-]+@[\w.-]+\.\w+\b"}, action="flag"
+        ),
     ]
     result = await check(output="Contact us at test@example.com", rules=rules)
     assert result.passed is False
@@ -46,7 +47,9 @@ async def test_regex_match_triggers_violation():
 @pytest.mark.asyncio
 async def test_regex_no_match_passes():
     rules = [
-        GuardrailRule(name="no-emails", rule_type="regex", condition={"pattern": r"\b[\w.-]+@[\w.-]+\.\w+\b"}, action="flag"),
+        GuardrailRule(
+            name="no-emails", rule_type="regex", condition={"pattern": r"\b[\w.-]+@[\w.-]+\.\w+\b"}, action="flag"
+        ),
     ]
     result = await check(output="No emails here", rules=rules)
     assert result.passed is True
@@ -56,7 +59,9 @@ async def test_regex_no_match_passes():
 @pytest.mark.asyncio
 async def test_regex_case_insensitive():
     rules = [
-        GuardrailRule(name="no-secret", rule_type="regex", condition={"pattern": "SECRET", "ignore_case": True}, action="block"),
+        GuardrailRule(
+            name="no-secret", rule_type="regex", condition={"pattern": "SECRET", "ignore_case": True}, action="block"
+        ),
     ]
     result = await check(output="this is a secret value", rules=rules)
     assert result.passed is False
@@ -78,7 +83,12 @@ async def test_regex_empty_pattern_no_violation():
 @pytest.mark.asyncio
 async def test_keyword_match_triggers():
     rules = [
-        GuardrailRule(name="competitor-block", rule_type="keyword", condition={"keywords": ["CompetitorX", "RivalY"]}, action="block"),
+        GuardrailRule(
+            name="competitor-block",
+            rule_type="keyword",
+            condition={"keywords": ["CompetitorX", "RivalY"]},
+            action="block",
+        ),
     ]
     result = await check(output="I recommend trying CompetitorX for better results", rules=rules)
     assert result.passed is False
@@ -89,7 +99,9 @@ async def test_keyword_match_triggers():
 @pytest.mark.asyncio
 async def test_keyword_no_match_passes():
     rules = [
-        GuardrailRule(name="competitor-block", rule_type="keyword", condition={"keywords": ["CompetitorX"]}, action="block"),
+        GuardrailRule(
+            name="competitor-block", rule_type="keyword", condition={"keywords": ["CompetitorX"]}, action="block"
+        ),
     ]
     result = await check(output="Our product is the best", rules=rules)
     assert result.passed is True
@@ -98,7 +110,12 @@ async def test_keyword_no_match_passes():
 @pytest.mark.asyncio
 async def test_keyword_case_insensitive():
     rules = [
-        GuardrailRule(name="profanity", rule_type="keyword", condition={"keywords": ["badword"], "ignore_case": True}, action="flag"),
+        GuardrailRule(
+            name="profanity",
+            rule_type="keyword",
+            condition={"keywords": ["badword"], "ignore_case": True},
+            action="flag",
+        ),
     ]
     result = await check(output="This contains BADWORD in caps", rules=rules)
     assert result.passed is False
@@ -110,7 +127,12 @@ async def test_keyword_case_insensitive():
 @pytest.mark.asyncio
 async def test_threshold_exceeds_triggers():
     rules = [
-        GuardrailRule(name="cost-limit", rule_type="threshold", condition={"metric": "cost_estimate", "operator": ">", "limit": 0.10}, action="flag"),
+        GuardrailRule(
+            name="cost-limit",
+            rule_type="threshold",
+            condition={"metric": "cost_estimate", "operator": ">", "limit": 0.10},
+            action="flag",
+        ),
     ]
     result = await check(output="result", rules=rules, metadata={"cost_estimate": 0.25})
     assert result.passed is False
@@ -120,7 +142,12 @@ async def test_threshold_exceeds_triggers():
 @pytest.mark.asyncio
 async def test_threshold_under_limit_passes():
     rules = [
-        GuardrailRule(name="cost-limit", rule_type="threshold", condition={"metric": "cost_estimate", "operator": ">", "limit": 0.10}, action="flag"),
+        GuardrailRule(
+            name="cost-limit",
+            rule_type="threshold",
+            condition={"metric": "cost_estimate", "operator": ">", "limit": 0.10},
+            action="flag",
+        ),
     ]
     result = await check(output="result", rules=rules, metadata={"cost_estimate": 0.05})
     assert result.passed is True
@@ -129,7 +156,12 @@ async def test_threshold_under_limit_passes():
 @pytest.mark.asyncio
 async def test_threshold_missing_metric_passes():
     rules = [
-        GuardrailRule(name="cost-limit", rule_type="threshold", condition={"metric": "cost_estimate", "operator": ">", "limit": 0.10}, action="flag"),
+        GuardrailRule(
+            name="cost-limit",
+            rule_type="threshold",
+            condition={"metric": "cost_estimate", "operator": ">", "limit": 0.10},
+            action="flag",
+        ),
     ]
     result = await check(output="result", rules=rules, metadata={})
     assert result.passed is True
@@ -138,7 +170,12 @@ async def test_threshold_missing_metric_passes():
 @pytest.mark.asyncio
 async def test_threshold_less_than_operator():
     rules = [
-        GuardrailRule(name="min-tokens", rule_type="threshold", condition={"metric": "token_count", "operator": "<", "limit": 10}, action="flag"),
+        GuardrailRule(
+            name="min-tokens",
+            rule_type="threshold",
+            condition={"metric": "token_count", "operator": "<", "limit": 10},
+            action="flag",
+        ),
     ]
     result = await check(output="short", rules=rules, metadata={"token_count": 5})
     assert result.passed is False
@@ -151,7 +188,12 @@ async def test_threshold_less_than_operator():
 async def test_llm_rule_violation():
     llm_response = {"violated": True, "explanation": "The output recommends a competitor"}
     rules = [
-        GuardrailRule(name="no-competitor-recs", rule_type="llm", condition={"description": "Block if the agent recommends a competitor"}, action="block"),
+        GuardrailRule(
+            name="no-competitor-recs",
+            rule_type="llm",
+            condition={"description": "Block if the agent recommends a competitor"},
+            action="block",
+        ),
     ]
     with patch("engine.guardrails.call_llm", new_callable=AsyncMock, return_value=llm_response):
         result = await check(output="Try using RivalCo instead", rules=rules)
@@ -163,7 +205,12 @@ async def test_llm_rule_violation():
 async def test_llm_rule_no_violation():
     llm_response = {"violated": False, "explanation": "Output is fine"}
     rules = [
-        GuardrailRule(name="no-competitor-recs", rule_type="llm", condition={"description": "Block if the agent recommends a competitor"}, action="block"),
+        GuardrailRule(
+            name="no-competitor-recs",
+            rule_type="llm",
+            condition={"description": "Block if the agent recommends a competitor"},
+            action="block",
+        ),
     ]
     with patch("engine.guardrails.call_llm", new_callable=AsyncMock, return_value=llm_response):
         result = await check(output="Our product handles this well", rules=rules)
@@ -175,7 +222,9 @@ async def test_llm_rule_no_violation():
 async def test_llm_timeout_no_violation():
     """LLM timeout should not trigger a violation."""
     rules = [
-        GuardrailRule(name="safety", rule_type="llm", condition={"description": "Block harmful content"}, action="block"),
+        GuardrailRule(
+            name="safety", rule_type="llm", condition={"description": "Block harmful content"}, action="block"
+        ),
     ]
     with patch("engine.guardrails.call_llm", new_callable=AsyncMock, return_value=None):
         result = await check(output="some output", rules=rules)

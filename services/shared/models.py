@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -25,7 +25,7 @@ class ConversationTurn(BaseModel):
     sequence_number: int
     input: Any = None
     output: Any = None
-    task: Optional[str] = None
+    task: str | None = None
 
 
 class StepRecord(BaseModel):
@@ -38,7 +38,7 @@ class StepRecord(BaseModel):
     name: str
     input: Any = None
     output: Any = None
-    duration_ms: Optional[float] = None
+    duration_ms: float | None = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -50,35 +50,35 @@ class IngestEvent(BaseModel):
     """
 
     execution_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    session_id: Optional[str] = None
-    parent_execution_id: Optional[str] = None
-    sequence_number: Optional[int] = None
+    session_id: str | None = None
+    parent_execution_id: str | None = None
+    sequence_number: int | None = None
     agent_id: str
-    task: Optional[str] = None
+    task: str | None = None
     input: Any = None
     output: Any = None
-    steps: List[StepRecord] = Field(default_factory=list)
-    token_count: Optional[int] = None
-    cost_estimate: Optional[float] = None
-    latency_ms: Optional[float] = None
+    steps: list[StepRecord] = Field(default_factory=list)
+    token_count: int | None = None
+    cost_estimate: float | None = None
+    latency_ms: float | None = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     ground_truth: Any = None
-    schema_definition: Optional[Dict[str, Any]] = None
-    conversation_history: Optional[List[ConversationTurn]] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    schema_definition: dict[str, Any] | None = None
+    conversation_history: list[ConversationTurn] | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class IngestBatchRequest(BaseModel):
     """A batch of ingest events submitted together."""
 
-    events: List[IngestEvent]
+    events: list[IngestEvent]
 
 
 class IngestResponse(BaseModel):
     """Response returned from ingestion endpoints."""
 
     accepted: int
-    execution_ids: List[str] = Field(default_factory=list)
+    execution_ids: list[str] = Field(default_factory=list)
 
 
 class CheckResult(BaseModel):
@@ -87,7 +87,7 @@ class CheckResult(BaseModel):
     check_type: str
     score: float
     passed: bool
-    details: Dict[str, Any] = Field(default_factory=dict)
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class VerifyRequest(IngestEvent):
@@ -106,7 +106,7 @@ class CorrectionAttemptResponse(BaseModel):
     layer: int
     layer_name: str
     corrected_output: Any = None
-    confidence: Optional[float] = None
+    confidence: float | None = None
     action: str = "pass"
     success: bool = False
     latency_ms: float = 0.0
@@ -116,13 +116,13 @@ class VerifyResponse(BaseModel):
     """Response from synchronous verification."""
 
     execution_id: str
-    confidence: Optional[float] = None
+    confidence: float | None = None
     action: str = "pass"
     output: Any = None
-    corrections: Optional[List[Dict[str, Any]]] = None
-    checks: Dict[str, CheckResult] = Field(default_factory=dict)
+    corrections: list[dict[str, Any]] | None = None
+    checks: dict[str, CheckResult] = Field(default_factory=dict)
     corrected: bool = False
-    original_output: Optional[Any] = None
-    correction_attempts: Optional[List[CorrectionAttemptResponse]] = None
+    original_output: Any | None = None
+    correction_attempts: list[CorrectionAttemptResponse] | None = None
     correction_skipped: bool = False
-    correction_skipped_reason: Optional[str] = None
+    correction_skipped_reason: str | None = None

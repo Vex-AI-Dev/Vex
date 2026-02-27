@@ -1,7 +1,6 @@
 """Tests for tool_policy guardrail rule type."""
 
 import pytest
-
 from engine.guardrails import check
 from engine.models import GuardrailRule
 from shared.models import StepRecord

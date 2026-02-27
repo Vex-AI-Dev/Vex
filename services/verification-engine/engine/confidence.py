@@ -5,14 +5,14 @@ handling None scores by redistributing their weight proportionally
 to the remaining checks.
 """
 
-from typing import Dict, Optional
+from typing import Optional
 
 from engine.models import CheckResult
 
 
 def compute(
-    checks: Dict[str, CheckResult],
-    weights: Dict[str, float],
+    checks: dict[str, CheckResult],
+    weights: dict[str, float],
 ) -> Optional[float]:
     """Compute a weighted composite confidence score.
 

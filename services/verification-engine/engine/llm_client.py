@@ -9,7 +9,7 @@ import json
 import logging
 import os
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from litellm import acompletion
 
@@ -22,7 +22,7 @@ DEFAULT_TIMEOUT_S = 5
 _JSON_MODE_PREFIXES = ("openai/", "gpt-")
 
 
-def _extract_json(text: str) -> Optional[Dict[str, Any]]:
+def _extract_json(text: str) -> Optional[dict[str, Any]]:
     """Extract JSON from LLM response, handling markdown fences."""
     # Try direct parse first
     try:
@@ -52,7 +52,7 @@ def _extract_json(text: str) -> Optional[Dict[str, Any]]:
 async def call_llm(
     prompt: str,
     system: Optional[str] = None,
-) -> Optional[Dict[str, Any]]:
+) -> Optional[dict[str, Any]]:
     """Send a prompt to the LLM and parse the JSON response.
 
     Args:
@@ -73,7 +73,7 @@ async def call_llm(
     api_base = os.environ.get("LITELLM_API_URL") or os.environ.get("OPENAI_API_BASE")
     api_key = os.environ.get("LITELLM_API_KEY") or os.environ.get("OPENAI_API_KEY")
 
-    kwargs: Dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "timeout": timeout_s,

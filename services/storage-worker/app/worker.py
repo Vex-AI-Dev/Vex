@@ -15,11 +15,10 @@ it can be tested in isolation.
 import json
 import logging
 import uuid
-from typing import Any, Dict, Optional
-
-from sqlalchemy import text
+from typing import Any
 
 from shared.models import IngestEvent
+from sqlalchemy import text
 
 logger = logging.getLogger("agentguard.storage-worker")
 S3_BUCKET = "agentguard-traces"
@@ -32,7 +31,7 @@ def process_event(
     s3_client: object,
     db_session: object,
     org_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Process a single ingest event: write to S3 and PostgreSQL.
 
     Args:
@@ -185,9 +184,9 @@ def process_event(
 
 
 def process_verified_event(
-    event_data: Dict[str, Any],
+    event_data: dict[str, Any],
     db_session: object,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Process a verified event: write check_results and update execution.
 
     Args:
@@ -227,12 +226,13 @@ def process_verified_event(
             original_output = original_output_raw
 
     # Build correction metadata for potential future storage
-    correction_metadata = None  # type: Optional[str]
     if corrected:
-        correction_metadata = json.dumps({
-            "correction_attempts": correction_attempts or [],
-            "original_output": original_output,
-        })
+        json.dumps(
+            {
+                "correction_attempts": correction_attempts or [],
+                "original_output": original_output,
+            }
+        )
 
     # Update execution row first — if the row doesn't exist yet
     # (raw consumer hasn't created it), we skip check_results to

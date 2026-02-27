@@ -49,9 +49,7 @@ def test_ingest_rejects_missing_api_key(mock_redis):
     app.state.redis = mock_redis
     # No dependency_overrides → real auth runs
     client_no_auth = TestClient(app)
-    response = client_no_auth.post(
-        "/v1/ingest", json={"agent_id": "x", "input": {}, "output": {}}
-    )
+    response = client_no_auth.post("/v1/ingest", json={"agent_id": "x", "input": {}, "output": {}})
     assert response.status_code == 401
 
 
@@ -65,11 +63,7 @@ def test_ingest_rejects_invalid_payload(client):
 
 
 def test_batch_rejects_over_50_events(client):
-    events = {
-        "events": [
-            {"agent_id": f"bot-{i}", "input": {}, "output": {}} for i in range(51)
-        ]
-    }
+    events = {"events": [{"agent_id": f"bot-{i}", "input": {}, "output": {}} for i in range(51)]}
     response = client.post(
         "/v1/ingest/batch",
         json=events,

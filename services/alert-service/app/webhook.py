@@ -6,7 +6,7 @@ backoff retry (up to 3 attempts).
 
 import asyncio
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import httpx
 
@@ -19,8 +19,8 @@ WEBHOOK_TIMEOUT_S = 5.0
 
 async def deliver(
     url: str,
-    payload: Dict[str, Any],
-) -> Tuple[bool, int]:
+    payload: dict[str, Any],
+) -> tuple[bool, int]:
     """Deliver a webhook payload with retry.
 
     Args:

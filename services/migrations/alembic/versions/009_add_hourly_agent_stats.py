@@ -11,7 +11,8 @@ Revises: 008
 Create Date: 2026-02-19
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 from alembic import op
 
@@ -56,6 +57,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(
-        "DROP MATERIALIZED VIEW IF EXISTS hourly_agent_stats CASCADE"
-    )
+    op.execute("DROP MATERIALIZED VIEW IF EXISTS hourly_agent_stats CASCADE")

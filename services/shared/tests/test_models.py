@@ -1,12 +1,12 @@
 from shared.models import (
+    CheckResult,
     ConversationTurn,
-    StepRecord,
-    IngestEvent,
     IngestBatchRequest,
+    IngestEvent,
     IngestResponse,
+    StepRecord,
     VerifyRequest,
     VerifyResponse,
-    CheckResult,
 )
 
 
@@ -245,6 +245,7 @@ def test_ingest_event_with_steps():
 
 def test_correction_attempt_response_creation():
     from shared.models import CorrectionAttemptResponse
+
     attempt = CorrectionAttemptResponse(
         layer=1,
         layer_name="repair",
@@ -259,7 +260,8 @@ def test_correction_attempt_response_creation():
 
 
 def test_verify_response_with_correction_fields():
-    from shared.models import VerifyResponse, CorrectionAttemptResponse
+    from shared.models import CorrectionAttemptResponse, VerifyResponse
+
     response = VerifyResponse(
         execution_id="exec-123",
         confidence=0.9,
@@ -269,8 +271,13 @@ def test_verify_response_with_correction_fields():
         original_output="bad output",
         correction_attempts=[
             CorrectionAttemptResponse(
-                layer=1, layer_name="repair", corrected_output="fixed",
-                confidence=0.9, action="pass", success=True, latency_ms=340.0,
+                layer=1,
+                layer_name="repair",
+                corrected_output="fixed",
+                confidence=0.9,
+                action="pass",
+                success=True,
+                latency_ms=340.0,
             ),
         ],
     )
@@ -281,6 +288,7 @@ def test_verify_response_with_correction_fields():
 
 def test_verify_response_backward_compat_no_correction():
     from shared.models import VerifyResponse
+
     response = VerifyResponse(
         execution_id="exec-456",
         confidence=0.8,

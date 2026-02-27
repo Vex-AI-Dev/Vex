@@ -37,10 +37,7 @@ def test_non_tool_steps_ignored():
 
 def test_excessive_tool_calls_detected():
     """More than max_tool_calls unique tool calls triggers detection."""
-    steps = [
-        StepRecord(step_type="tool_call", name=f"tool_{i}", input=f"in_{i}", output=f"out_{i}")
-        for i in range(30)
-    ]
+    steps = [StepRecord(step_type="tool_call", name=f"tool_{i}", input=f"in_{i}", output=f"out_{i}") for i in range(30)]
     result = check(steps=steps, max_tool_calls=20)
     assert result.passed is False
     assert result.score < 1.0
@@ -49,9 +46,7 @@ def test_excessive_tool_calls_detected():
 
 def test_consecutive_repeats_detected():
     """Same tool called N times in a row triggers detection."""
-    steps = [
-        StepRecord(step_type="tool_call", name="search", input="same query", output="same result")
-    ] * 8
+    steps = [StepRecord(step_type="tool_call", name="search", input="same query", output="same result")] * 8
     result = check(steps=steps, max_consecutive_repeats=5)
     assert result.passed is False
     assert result.score < 1.0
@@ -75,18 +70,14 @@ def test_cycle_pattern_detected():
 
 def test_near_threshold_passes():
     """Consecutive repeats just at the threshold should still pass."""
-    steps = [
-        StepRecord(step_type="tool_call", name="search", input="q", output="r")
-    ] * 5
+    steps = [StepRecord(step_type="tool_call", name="search", input="q", output="r")] * 5
     result = check(steps=steps, max_consecutive_repeats=5)
     assert result.passed is True
 
 
 def test_custom_thresholds():
     """Custom thresholds are respected."""
-    steps = [
-        StepRecord(step_type="tool_call", name="search", input="q", output="r")
-    ] * 4
+    steps = [StepRecord(step_type="tool_call", name="search", input="q", output="r")] * 4
     # Default max_consecutive_repeats=5 → pass
     assert check(steps=steps).passed is True
     # Stricter threshold → fail
@@ -95,12 +86,8 @@ def test_custom_thresholds():
 
 def test_score_degrades_with_severity():
     """Score should be lower for worse loops."""
-    mild = [
-        StepRecord(step_type="tool_call", name="search", input="q", output="r")
-    ] * 8
-    severe = [
-        StepRecord(step_type="tool_call", name="search", input="q", output="r")
-    ] * 50
+    mild = [StepRecord(step_type="tool_call", name="search", input="q", output="r")] * 8
+    severe = [StepRecord(step_type="tool_call", name="search", input="q", output="r")] * 50
     mild_result = check(steps=mild, max_consecutive_repeats=5)
     severe_result = check(steps=severe, max_consecutive_repeats=5)
     assert severe_result.score < mild_result.score

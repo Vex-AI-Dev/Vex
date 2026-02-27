@@ -8,10 +8,11 @@ Revises: 002
 Create Date: 2026-02-11
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "003"
@@ -32,9 +33,7 @@ def upgrade() -> None:
         unique=True,
     )
     # Backfill: set slug = org_id for existing rows so the fallback lookup works
-    op.execute(
-        "UPDATE organizations SET account_slug = org_id WHERE account_slug IS NULL"
-    )
+    op.execute("UPDATE organizations SET account_slug = org_id WHERE account_slug IS NULL")
 
 
 def downgrade() -> None:

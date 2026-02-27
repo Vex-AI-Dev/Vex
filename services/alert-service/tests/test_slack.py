@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
-
 from app.slack import deliver_slack, format_slack_message, get_slack_webhook_url
 
 
@@ -124,8 +123,7 @@ class TestDeliverSlack:
             call_count += 1
             return resp
 
-        with patch("app.slack.httpx.AsyncClient") as MockClient, \
-             patch("app.slack.RETRY_DELAYS", [0.01, 0.01, 0.01]):
+        with patch("app.slack.httpx.AsyncClient") as MockClient, patch("app.slack.RETRY_DELAYS", [0.01, 0.01, 0.01]):
             instance = AsyncMock()
             instance.post = mock_post
             instance.__aenter__ = AsyncMock(return_value=instance)
@@ -143,8 +141,7 @@ class TestDeliverSlack:
 
     @pytest.mark.asyncio
     async def test_all_retries_exhausted(self):
-        with patch("app.slack.httpx.AsyncClient") as MockClient, \
-             patch("app.slack.RETRY_DELAYS", [0.01, 0.01, 0.01]):
+        with patch("app.slack.httpx.AsyncClient") as MockClient, patch("app.slack.RETRY_DELAYS", [0.01, 0.01, 0.01]):
             instance = AsyncMock()
             instance.post = AsyncMock(return_value=httpx.Response(500))
             instance.__aenter__ = AsyncMock(return_value=instance)

@@ -7,7 +7,7 @@ Uses the same retry pattern as the HTTP webhook module.
 import asyncio
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import httpx
 
@@ -47,10 +47,10 @@ def format_slack_message(
     action: str,
     severity: str,
     confidence: Optional[float],
-    failure_types: List[str],
+    failure_types: list[str],
     dashboard_base_url: Optional[str] = None,
     suppressed_count: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build a Slack Block Kit message for an alert.
 
     Returns:
@@ -62,7 +62,7 @@ def format_slack_message(
 
     header_text = f"{emoji} Agent *{agent_id}* output *{action}ed* verification"
 
-    blocks: List[Dict[str, Any]] = [
+    blocks: list[dict[str, Any]] = [
         {
             "type": "header",
             "text": {"type": "plain_text", "text": f"Verification {action.capitalize()}", "emoji": True},
@@ -85,24 +85,31 @@ def format_slack_message(
     ]
 
     if suppressed_count > 0:
-        blocks.append({
-            "type": "context",
-            "elements": [
-                {"type": "mrkdwn", "text": f":repeat: {suppressed_count} similar events suppressed in the last 5 minutes"},
-            ],
-        })
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f":repeat: {suppressed_count} similar events suppressed in the last 5 minutes",
+                    },
+                ],
+            }
+        )
 
     if dashboard_base_url:
-        blocks.append({
-            "type": "actions",
-            "elements": [
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "View in Dashboard"},
-                    "url": f"{dashboard_base_url}/executions/{execution_id}",
-                },
-            ],
-        })
+        blocks.append(
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "View in Dashboard"},
+                        "url": f"{dashboard_base_url}/executions/{execution_id}",
+                    },
+                ],
+            }
+        )
 
     blocks.append({"type": "divider"})
 
@@ -115,9 +122,9 @@ def format_anomaly_slack_message(
     execution_id: str,
     alert_type: str,
     severity: str,
-    details: Dict[str, Any],
+    details: dict[str, Any],
     dashboard_base_url: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build a Slack Block Kit message for a cost/latency anomaly alert."""
     emoji = _severity_emoji(severity)
     metric = details.get("metric", "unknown")
@@ -130,7 +137,7 @@ def format_anomaly_slack_message(
 
     header_text = f"{emoji} *{metric_label} Anomaly* detected for agent *{agent_id}*"
 
-    blocks: List[Dict[str, Any]] = [
+    blocks: list[dict[str, Any]] = [
         {
             "type": "header",
             "text": {"type": "plain_text", "text": f"{metric_label} Anomaly Detected", "emoji": True},
@@ -153,16 +160,18 @@ def format_anomaly_slack_message(
     ]
 
     if dashboard_base_url:
-        blocks.append({
-            "type": "actions",
-            "elements": [
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "View in Dashboard"},
-                    "url": f"{dashboard_base_url}/executions/{execution_id}",
-                },
-            ],
-        })
+        blocks.append(
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "View in Dashboard"},
+                        "url": f"{dashboard_base_url}/executions/{execution_id}",
+                    },
+                ],
+            }
+        )
 
     blocks.append({"type": "divider"})
     return {"blocks": blocks}
@@ -170,8 +179,8 @@ def format_anomaly_slack_message(
 
 async def deliver_slack(
     url: str,
-    payload: Dict[str, Any],
-) -> Tuple[bool, int]:
+    payload: dict[str, Any],
+) -> tuple[bool, int]:
     """Deliver a Slack webhook payload with retry.
 
     Args:

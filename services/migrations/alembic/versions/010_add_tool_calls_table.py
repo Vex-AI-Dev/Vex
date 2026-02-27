@@ -9,7 +9,8 @@ Revises: 009
 Create Date: 2026-02-20
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
@@ -42,10 +43,7 @@ def upgrade() -> None:
     )
 
     # Convert to TimescaleDB hypertable (no-op on standard Postgres)
-    op.execute(
-        "SELECT create_hypertable('tool_calls', 'timestamp', "
-        "migrate_data => true, if_not_exists => true)"
-    )
+    op.execute("SELECT create_hypertable('tool_calls', 'timestamp', migrate_data => true, if_not_exists => true)")
 
     # Indexes for analytics queries
     op.create_index(

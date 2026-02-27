@@ -10,7 +10,7 @@ it can be tested in isolation.
 
 import json
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from engine.pipeline import verify
 from shared.models import IngestEvent
@@ -20,7 +20,7 @@ logger = logging.getLogger("agentguard.async-worker")
 VERIFIED_STREAM_KEY = "executions.verified"
 
 
-async def process_event(event: IngestEvent) -> Dict[str, Any]:
+async def process_event(event: IngestEvent) -> dict[str, Any]:
     """Run verification on an ingest event and return a verified event dict.
 
     Args:

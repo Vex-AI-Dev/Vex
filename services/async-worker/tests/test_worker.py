@@ -4,11 +4,9 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
+from app.worker import process_event
 from engine.models import CheckResult, VerificationResult
 from shared.models import ConversationTurn, IngestEvent
-
-from app.worker import process_event
 
 
 @pytest.fixture

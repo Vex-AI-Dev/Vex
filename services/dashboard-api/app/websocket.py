@@ -8,7 +8,6 @@ new execution events to all connected WebSocket clients.
 import asyncio
 import json
 import logging
-from typing import List
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -19,7 +18,7 @@ class ConnectionManager:
     """Manages active WebSocket connections and broadcasts messages."""
 
     def __init__(self) -> None:
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: list[WebSocket] = []
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
@@ -42,7 +41,7 @@ class ConnectionManager:
         Disconnected or erroring clients are silently skipped to avoid
         disrupting the broadcast to other clients.
         """
-        disconnected: List[WebSocket] = []
+        disconnected: list[WebSocket] = []
 
         for connection in self.active_connections:
             try:
@@ -90,7 +89,7 @@ async def stream_updates(redis_url: str) -> None:
             )
 
             if messages:
-                for stream, entries in messages:
+                for _stream, entries in messages:
                     for msg_id, data in entries:
                         last_id = msg_id
 
@@ -98,14 +97,17 @@ async def stream_updates(redis_url: str) -> None:
                             payload = json.loads(data.get("data", "{}"))
                         except (json.JSONDecodeError, TypeError):
                             logger.warning(
-                                "Skipping malformed message %s", msg_id,
+                                "Skipping malformed message %s",
+                                msg_id,
                             )
                             continue
 
-                        await manager.broadcast({
-                            "type": "execution.new",
-                            "data": payload,
-                        })
+                        await manager.broadcast(
+                            {
+                                "type": "execution.new",
+                                "data": payload,
+                            }
+                        )
         except asyncio.CancelledError:
             logger.info("Stream listener cancelled, shutting down")
             await redis_client.aclose()

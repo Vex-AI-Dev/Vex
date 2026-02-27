@@ -12,8 +12,7 @@ deployments, swap to a Redis-backed implementation.
 
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Dict, Tuple
+from dataclasses import dataclass
 
 logger = logging.getLogger("agentguard.alert-service.dedup")
 
@@ -42,13 +41,13 @@ class AlertDeduplicator:
 
     def __init__(self, window_seconds: float = DEFAULT_WINDOW_SECONDS) -> None:
         self._window_seconds = window_seconds
-        self._windows: Dict[str, _WindowState] = {}
+        self._windows: dict[str, _WindowState] = {}
 
     def should_deliver(
         self,
         agent_id: str,
         alert_type: str,
-    ) -> Tuple[bool, int]:
+    ) -> tuple[bool, int]:
         """Check whether an alert should be delivered or suppressed.
 
         Args:

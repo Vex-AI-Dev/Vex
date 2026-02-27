@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 # Add the dashboard-api service root to the path so that
 # `from app.main import ...` resolves correctly when tests

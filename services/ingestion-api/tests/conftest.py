@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 # Ensure the shared package is importable when running tests without
 # installing it into the virtual-env (fallback for local dev).
@@ -10,12 +10,12 @@ sys.path.insert(
     os.path.join(os.path.dirname(__file__), "..", ".."),
 )
 
-import pytest
 from unittest.mock import AsyncMock
-from fastapi.testclient import TestClient
 
-from app.main import create_app
+import pytest
 from app.auth import verify_api_key
+from app.main import create_app
+from fastapi.testclient import TestClient
 from shared.auth import KeyInfo
 
 

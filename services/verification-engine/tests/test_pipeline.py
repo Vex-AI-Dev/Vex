@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from engine.models import CheckResult, ConversationTurn, GuardrailRule, VerificationConfig
 from engine.pipeline import _rebalance_weights, route_action, verify
 from shared.models import StepRecord
@@ -41,8 +40,10 @@ async def test_full_pipeline_all_pass():
     }
     drift_response = {"score": 0.95, "explanation": "Relevant output"}
 
-    with patch("engine.hallucination.call_llm", new_callable=AsyncMock, return_value=hallucination_response), \
-         patch("engine.drift.call_llm", new_callable=AsyncMock, return_value=drift_response):
+    with (
+        patch("engine.hallucination.call_llm", new_callable=AsyncMock, return_value=hallucination_response),
+        patch("engine.drift.call_llm", new_callable=AsyncMock, return_value=drift_response),
+    ):
         result = await verify(
             output={"revenue": 1000000},
             task="Generate financial report",
@@ -69,8 +70,10 @@ async def test_full_pipeline_schema_failure_causes_block():
     }
     drift_response = {"score": 0.9, "explanation": "Relevant"}
 
-    with patch("engine.hallucination.call_llm", new_callable=AsyncMock, return_value=hallucination_response), \
-         patch("engine.drift.call_llm", new_callable=AsyncMock, return_value=drift_response):
+    with (
+        patch("engine.hallucination.call_llm", new_callable=AsyncMock, return_value=hallucination_response),
+        patch("engine.drift.call_llm", new_callable=AsyncMock, return_value=drift_response),
+    ):
         result = await verify(
             output={"wrong_field": "data"},
             task="Generate report",
@@ -99,8 +102,10 @@ async def test_pipeline_with_no_optional_inputs():
 @pytest.mark.asyncio
 async def test_pipeline_llm_timeout_graceful():
     """LLM timeout returns None scores — pipeline still succeeds."""
-    with patch("engine.hallucination.call_llm", new_callable=AsyncMock, return_value=None), \
-         patch("engine.drift.call_llm", new_callable=AsyncMock, return_value=None):
+    with (
+        patch("engine.hallucination.call_llm", new_callable=AsyncMock, return_value=None),
+        patch("engine.drift.call_llm", new_callable=AsyncMock, return_value=None),
+    ):
         result = await verify(
             output="hello",
             task="greet user",
@@ -157,9 +162,11 @@ async def test_pipeline_with_history_runs_four_checks():
         ConversationTurn(sequence_number=0, input="Revenue?", output="$5.2B"),
     ]
 
-    with patch("engine.hallucination.call_llm", new_callable=AsyncMock, return_value=hallucination_response), \
-         patch("engine.drift.call_llm", new_callable=AsyncMock, return_value=drift_response), \
-         patch("engine.coherence.call_llm", new_callable=AsyncMock, return_value=coherence_response):
+    with (
+        patch("engine.hallucination.call_llm", new_callable=AsyncMock, return_value=hallucination_response),
+        patch("engine.drift.call_llm", new_callable=AsyncMock, return_value=drift_response),
+        patch("engine.coherence.call_llm", new_callable=AsyncMock, return_value=coherence_response),
+    ):
         result = await verify(
             output="Revenue is still $5.2B.",
             task="Financial summary",
@@ -187,8 +194,10 @@ async def test_pipeline_without_history_runs_three_checks():
     }
     drift_response = {"score": 0.95, "explanation": "On topic."}
 
-    with patch("engine.hallucination.call_llm", new_callable=AsyncMock, return_value=hallucination_response), \
-         patch("engine.drift.call_llm", new_callable=AsyncMock, return_value=drift_response):
+    with (
+        patch("engine.hallucination.call_llm", new_callable=AsyncMock, return_value=hallucination_response),
+        patch("engine.drift.call_llm", new_callable=AsyncMock, return_value=drift_response),
+    ):
         result = await verify(
             output="Revenue is $5.2B.",
             task="Financial summary",
@@ -230,9 +239,11 @@ async def test_pipeline_custom_weights_with_coherence():
         weights={"schema": 0.5, "hallucination": 0.25, "drift": 0.25},
     )
 
-    with patch("engine.hallucination.call_llm", new_callable=AsyncMock, return_value=hallucination_response), \
-         patch("engine.drift.call_llm", new_callable=AsyncMock, return_value=drift_response), \
-         patch("engine.coherence.call_llm", new_callable=AsyncMock, return_value=coherence_response):
+    with (
+        patch("engine.hallucination.call_llm", new_callable=AsyncMock, return_value=hallucination_response),
+        patch("engine.drift.call_llm", new_callable=AsyncMock, return_value=drift_response),
+        patch("engine.coherence.call_llm", new_callable=AsyncMock, return_value=coherence_response),
+    ):
         result = await verify(
             output="output",
             task="task",
@@ -254,8 +265,10 @@ async def test_pipeline_runs_tool_loop_check_when_steps_provided():
         StepRecord(step_type="tool_call", name="read", input="f", output="d"),
     ]
 
-    with patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal, \
-         patch("engine.drift.check", new_callable=AsyncMock) as mock_drift:
+    with (
+        patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal,
+        patch("engine.drift.check", new_callable=AsyncMock) as mock_drift,
+    ):
         mock_hal.return_value = CheckResult(check_type="hallucination", score=1.0, passed=True, details={})
         mock_drift.return_value = CheckResult(check_type="drift", score=1.0, passed=True, details={})
 
@@ -268,8 +281,10 @@ async def test_pipeline_runs_tool_loop_check_when_steps_provided():
 @pytest.mark.asyncio
 async def test_pipeline_skips_tool_loop_when_no_steps():
     """Pipeline does not include tool_loop when no steps provided."""
-    with patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal, \
-         patch("engine.drift.check", new_callable=AsyncMock) as mock_drift:
+    with (
+        patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal,
+        patch("engine.drift.check", new_callable=AsyncMock) as mock_drift,
+    ):
         mock_hal.return_value = CheckResult(check_type="hallucination", score=1.0, passed=True, details={})
         mock_drift.return_value = CheckResult(check_type="drift", score=1.0, passed=True, details={})
 
@@ -281,12 +296,12 @@ async def test_pipeline_skips_tool_loop_when_no_steps():
 @pytest.mark.asyncio
 async def test_pipeline_tool_loop_failure_affects_confidence():
     """A tool loop detection failure lowers composite confidence."""
-    steps = [
-        StepRecord(step_type="tool_call", name="search", input="q", output="r")
-    ] * 30
+    steps = [StepRecord(step_type="tool_call", name="search", input="q", output="r")] * 30
 
-    with patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal, \
-         patch("engine.drift.check", new_callable=AsyncMock) as mock_drift:
+    with (
+        patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal,
+        patch("engine.drift.check", new_callable=AsyncMock) as mock_drift,
+    ):
         mock_hal.return_value = CheckResult(check_type="hallucination", score=1.0, passed=True, details={})
         mock_drift.return_value = CheckResult(check_type="drift", score=1.0, passed=True, details={})
 
@@ -319,12 +334,16 @@ async def test_pipeline_with_guardrails_keyword_block():
     """A keyword block guardrail should force action to block."""
     config = VerificationConfig(
         guardrails=[
-            GuardrailRule(name="no-competitor", rule_type="keyword", condition={"keywords": ["RivalCo"]}, action="block"),
+            GuardrailRule(
+                name="no-competitor", rule_type="keyword", condition={"keywords": ["RivalCo"]}, action="block"
+            ),
         ],
     )
 
-    with patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal, \
-         patch("engine.drift.check", new_callable=AsyncMock) as mock_drift:
+    with (
+        patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal,
+        patch("engine.drift.check", new_callable=AsyncMock) as mock_drift,
+    ):
         mock_hal.return_value = CheckResult(check_type="hallucination", score=1.0, passed=True, details={})
         mock_drift.return_value = CheckResult(check_type="drift", score=1.0, passed=True, details={})
 
@@ -344,8 +363,10 @@ async def test_pipeline_with_guardrails_flag_only():
         ],
     )
 
-    with patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal, \
-         patch("engine.drift.check", new_callable=AsyncMock) as mock_drift:
+    with (
+        patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal,
+        patch("engine.drift.check", new_callable=AsyncMock) as mock_drift,
+    ):
         mock_hal.return_value = CheckResult(check_type="hallucination", score=1.0, passed=True, details={})
         mock_drift.return_value = CheckResult(check_type="drift", score=1.0, passed=True, details={})
 
@@ -359,8 +380,10 @@ async def test_pipeline_with_guardrails_flag_only():
 @pytest.mark.asyncio
 async def test_pipeline_without_guardrails_no_check():
     """No guardrails configured — guardrails check should not be in results."""
-    with patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal, \
-         patch("engine.drift.check", new_callable=AsyncMock) as mock_drift:
+    with (
+        patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal,
+        patch("engine.drift.check", new_callable=AsyncMock) as mock_drift,
+    ):
         mock_hal.return_value = CheckResult(check_type="hallucination", score=1.0, passed=True, details={})
         mock_drift.return_value = CheckResult(check_type="drift", score=1.0, passed=True, details={})
 
@@ -378,8 +401,10 @@ async def test_pipeline_guardrails_passing_does_not_affect_action():
         ],
     )
 
-    with patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal, \
-         patch("engine.drift.check", new_callable=AsyncMock) as mock_drift:
+    with (
+        patch("engine.hallucination.check", new_callable=AsyncMock) as mock_hal,
+        patch("engine.drift.check", new_callable=AsyncMock) as mock_drift,
+    ):
         mock_hal.return_value = CheckResult(check_type="hallucination", score=1.0, passed=True, details={})
         mock_drift.return_value = CheckResult(check_type="drift", score=1.0, passed=True, details={})
 

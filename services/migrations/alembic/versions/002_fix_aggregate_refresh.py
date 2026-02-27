@@ -10,7 +10,8 @@ Revises: 001
 Create Date: 2026-02-11
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 # revision identifiers, used by Alembic.
 revision: str = "002"

@@ -1,14 +1,12 @@
 """Tests for the Vex Dashboard API WebSocket service."""
 
 import asyncio
-import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-
 from app.main import create_app
 from app.websocket import ConnectionManager, manager
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture
@@ -36,10 +34,12 @@ def test_websocket_connect_and_receive(client):
     with client.websocket_connect("/ws") as ws:
         # Broadcast a message from the manager
         async def do_broadcast():
-            await manager.broadcast({
-                "type": "execution.new",
-                "data": {"execution_id": "test-123"},
-            })
+            await manager.broadcast(
+                {
+                    "type": "execution.new",
+                    "data": {"execution_id": "test-123"},
+                }
+            )
 
         asyncio.get_event_loop().run_until_complete(do_broadcast())
 
@@ -52,11 +52,14 @@ def test_websocket_multiple_clients(client):
     """Multiple WebSocket clients each receive broadcasted messages."""
     with client.websocket_connect("/ws") as ws1:
         with client.websocket_connect("/ws") as ws2:
+
             async def do_broadcast():
-                await manager.broadcast({
-                    "type": "execution.new",
-                    "data": {"execution_id": "multi-456"},
-                })
+                await manager.broadcast(
+                    {
+                        "type": "execution.new",
+                        "data": {"execution_id": "multi-456"},
+                    }
+                )
 
             asyncio.get_event_loop().run_until_complete(do_broadcast())
 

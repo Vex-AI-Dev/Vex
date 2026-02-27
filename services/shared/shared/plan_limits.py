@@ -8,7 +8,7 @@ column value in the ``organizations`` table.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -88,7 +88,7 @@ class PlanConfig:
     overage_allowed: bool
 
 
-PLAN_LIMITS: Dict[str, PlanConfig] = {
+PLAN_LIMITS: dict[str, PlanConfig] = {
     "free": PlanConfig(
         observations_per_month=1_000,
         verifications_per_month=50,
@@ -152,7 +152,7 @@ PLAN_LIMITS: Dict[str, PlanConfig] = {
 }
 
 
-def get_plan_config(plan: str, overrides: Optional[Dict[str, Any]] = None) -> PlanConfig:
+def get_plan_config(plan: str, overrides: dict[str, Any] | None = None) -> PlanConfig:
     """Return the PlanConfig for the given plan name.
 
     Falls back to ``"free"`` for unknown plan values.
@@ -163,5 +163,6 @@ def get_plan_config(plan: str, overrides: Optional[Dict[str, Any]] = None) -> Pl
     if not overrides:
         return base
     from dataclasses import asdict
+
     merged = {**asdict(base), **{k: v for k, v in overrides.items() if v is not None}}
     return PlanConfig(**merged)

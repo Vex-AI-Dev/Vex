@@ -22,7 +22,6 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from threading import Lock
-from typing import Deque, Dict, List, Optional
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -40,7 +39,7 @@ class KeyInfo:
 
     org_id: str
     key_id: str
-    scopes: List[str]
+    scopes: list[str]
     plan: str = "free"
 
 
@@ -50,12 +49,12 @@ class _CachedKey:
 
     org_id: str
     key_id: str
-    scopes: List[str]
+    scopes: list[str]
     rate_limit_rpm: int
-    expires_at: Optional[datetime]
+    expires_at: datetime | None
     revoked: bool
     plan: str = "free"
-    plan_overrides: Optional[Dict] = None
+    plan_overrides: dict | None = None
     cached_at: float = field(default_factory=time.monotonic)
 
 
@@ -79,14 +78,12 @@ class KeyValidator:
         self,
         database_url: str,
         required_scope: str,
-        supabase_database_url: Optional[str] = None,
+        supabase_database_url: str | None = None,
         cache_ttl_s: float = 60.0,
         flush_interval_s: float = 60.0,
     ) -> None:
         if required_scope not in VALID_SCOPES:
-            raise ValueError(
-                f"Invalid scope {required_scope!r}; must be one of {VALID_SCOPES}"
-            )
+            raise ValueError(f"Invalid scope {required_scope!r}; must be one of {VALID_SCOPES}")
 
         self._engine: Engine = create_engine(
             database_url,
@@ -94,7 +91,7 @@ class KeyValidator:
             max_overflow=3,
             pool_pre_ping=True,
         )
-        self._supabase_engine: Optional[Engine] = None
+        self._supabase_engine: Engine | None = None
         if supabase_database_url:
             self._supabase_engine = create_engine(
                 supabase_database_url,
@@ -107,27 +104,27 @@ class KeyValidator:
         self._flush_interval_s = flush_interval_s
 
         # key_hash -> _CachedKey
-        self._cache: Dict[str, _CachedKey] = {}
+        self._cache: dict[str, _CachedKey] = {}
         self._cache_lock = Lock()
 
         # Rate limit counters: key_id -> deque of request timestamps
-        self._rate_counters: Dict[str, Deque[float]] = {}
+        self._rate_counters: dict[str, deque[float]] = {}
         self._rate_lock = Lock()
 
         # Batched last_used_at updates: key_id -> timestamp
-        self._usage_buffer: Dict[str, str] = {}
+        self._usage_buffer: dict[str, str] = {}
         self._usage_lock = Lock()
         self._last_flush = time.monotonic()
 
         # Known agent IDs per org (avoids DB query on every request)
-        self._known_agents: Dict[str, set] = {}
+        self._known_agents: dict[str, set] = {}
         self._known_agents_lock = Lock()
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def validate(self, api_key: str, agent_id: Optional[str] = None) -> KeyInfo:
+    def validate(self, api_key: str, agent_id: str | None = None) -> KeyInfo:
         """Validate an API key and return org information.
 
         This method is synchronous.  When used as a FastAPI dependency
@@ -269,9 +266,7 @@ class KeyValidator:
                 if row is None:
                     return ("free", None)
                 plan = row[0] or "free"
-                overrides = row[1] if isinstance(row[1], dict) else (
-                    json.loads(row[1]) if row[1] else None
-                )
+                overrides = row[1] if isinstance(row[1], dict) else (json.loads(row[1]) if row[1] else None)
                 return (plan, overrides)
         except Exception:
             logger.warning(
@@ -280,7 +275,7 @@ class KeyValidator:
             )
             return ("free", None)
 
-    def _cache_get(self, key_hash: str) -> Optional[_CachedKey]:
+    def _cache_get(self, key_hash: str) -> _CachedKey | None:
         with self._cache_lock:
             entry = self._cache.get(key_hash)
             if entry is None:
@@ -294,7 +289,7 @@ class KeyValidator:
         with self._cache_lock:
             self._cache[key_hash] = entry
 
-    def _query_db(self, key_hash: str) -> Optional[_CachedKey]:
+    def _query_db(self, key_hash: str) -> _CachedKey | None:
         """Query the organizations table for a matching key hash."""
         try:
             with self._engine.connect() as conn:
@@ -311,7 +306,7 @@ class KeyValidator:
                 row = result.fetchone()
         except Exception:
             logger.error("Database error during key lookup", exc_info=True)
-            raise AuthError(500, "Internal authentication error")
+            raise AuthError(500, "Internal authentication error") from None
 
         if row is None:
             return None
@@ -327,9 +322,7 @@ class KeyValidator:
             if key_entry.get("key_hash") == key_hash:
                 expires_at = None
                 if key_entry.get("expires_at"):
-                    expires_at = datetime.fromisoformat(
-                        key_entry["expires_at"].replace("Z", "+00:00")
-                    )
+                    expires_at = datetime.fromisoformat(key_entry["expires_at"].replace("Z", "+00:00"))
 
                 per_key_rpm = key_entry.get("rate_limit_rpm", 1000)
                 effective_rpm = min(per_key_rpm, plan_config.max_rpm)
@@ -347,7 +340,7 @@ class KeyValidator:
 
         return None
 
-    def _check_agent_limit(self, entry: _CachedKey, agent_id: Optional[str]) -> None:
+    def _check_agent_limit(self, entry: _CachedKey, agent_id: str | None) -> None:
         """Enforce per-plan agent limit."""
         if agent_id is None:
             return
@@ -363,10 +356,13 @@ class KeyValidator:
 
         try:
             with self._engine.connect() as conn:
-                agent_count = conn.execute(
-                    text("SELECT COUNT(DISTINCT agent_id) FROM agents WHERE org_id = :org_id"),
-                    {"org_id": entry.org_id},
-                ).scalar() or 0
+                agent_count = (
+                    conn.execute(
+                        text("SELECT COUNT(DISTINCT agent_id) FROM agents WHERE org_id = :org_id"),
+                        {"org_id": entry.org_id},
+                    ).scalar()
+                    or 0
+                )
 
                 exists = conn.execute(
                     text("SELECT 1 FROM agents WHERE org_id = :org_id AND agent_id = :agent_id"),
@@ -427,7 +423,10 @@ class KeyValidator:
                 )
             logger.info(
                 "Overage: org=%s plan=%s usage=%d limit=%d",
-                entry.org_id, entry.plan, current_usage, monthly_limit,
+                entry.org_id,
+                entry.plan,
+                current_usage,
+                monthly_limit,
             )
 
     def _check_rate_limit(self, entry: _CachedKey) -> None:
@@ -480,7 +479,7 @@ class AuthError(Exception):
         self,
         status_code: int,
         detail: str,
-        retry_after_seconds: Optional[int] = None,
+        retry_after_seconds: int | None = None,
     ) -> None:
         self.status_code = status_code
         self.detail = detail

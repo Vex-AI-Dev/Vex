@@ -104,4 +104,5 @@ class TestAlertDeduplicator:
 def _get_monotonic():
     """Get a stable reference time for patching."""
     import time
+
     return time.monotonic()

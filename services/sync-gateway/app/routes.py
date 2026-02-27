@@ -12,28 +12,29 @@ import asyncio
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
+from engine.correction import correct as run_correction
+from engine.correction import select_layer
+from engine.models import CorrectionAttempt, VerificationConfig, VerificationResult
+from engine.pipeline import verify as run_verification
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-
+from shared.auth import KeyInfo
 from shared.models import (
     CheckResult as SharedCheckResult,
+)
+from shared.models import (
     CorrectionAttemptResponse,
     IngestEvent,
     IngestResponse,
     VerifyRequest,
     VerifyResponse,
 )
-
-from engine.correction import correct as run_correction, select_layer
-from engine.models import CorrectionAttempt, VerificationConfig, VerificationResult
-from engine.pipeline import verify as run_verification
+from shared.plan_limits import get_plan_config
 
 from app.auth import verify_api_key, verify_ingest_key
 from app.guardrails_loader import load_guardrails
-from shared.auth import KeyInfo
-from shared.plan_limits import get_plan_config
 
 logger = logging.getLogger("agentguard.sync-gateway")
 
@@ -47,10 +48,10 @@ router = APIRouter()
 
 
 def _engine_checks_to_shared(
-    checks: Dict[str, Any],
-) -> Dict[str, SharedCheckResult]:
+    checks: dict[str, Any],
+) -> dict[str, SharedCheckResult]:
     """Convert engine CheckResult dicts to shared CheckResult models."""
-    shared: Dict[str, SharedCheckResult] = {}
+    shared: dict[str, SharedCheckResult] = {}
     for name, check in checks.items():
         shared[name] = SharedCheckResult(
             check_type=check.check_type,
@@ -65,7 +66,7 @@ async def _verify_and_correct(
     event: VerifyRequest,
     config: VerificationConfig,
     correction_mode: str,
-) -> Tuple[VerificationResult, Any, bool, Optional[List[CorrectionAttempt]]]:
+) -> tuple[VerificationResult, Any, bool, Optional[list[CorrectionAttempt]]]:
     """Run initial verification and optional correction cascade.
 
     This entire coroutine runs under a single ``asyncio.wait_for`` so the
@@ -88,7 +89,7 @@ async def _verify_and_correct(
 
     final_output = event.output
     corrected = False
-    correction_attempts: Optional[List[CorrectionAttempt]] = None
+    correction_attempts: Optional[list[CorrectionAttempt]] = None
 
     # --- Correction cascade (only when enabled AND initial check failed) ---
     if correction_mode in ("cascade", "auto") and result.action != "pass":
@@ -145,9 +146,7 @@ async def _verify_and_correct(
                 break
 
             # Track the best correction even if it didn't reach "pass"
-            if result.confidence is not None and (
-                best_confidence is None or result.confidence > best_confidence
-            ):
+            if result.confidence is not None and (best_confidence is None or result.confidence > best_confidence):
                 best_confidence = result.confidence
                 best_output = attempt.corrected_output
                 best_result = result
@@ -173,7 +172,7 @@ async def health_check(request: Request):
         await request.app.state.redis.ping()
     except Exception:
         logger.error("Health check failed: Redis unreachable", exc_info=True)
-        raise HTTPException(status_code=503, detail="Redis unreachable")
+        raise HTTPException(status_code=503, detail="Redis unreachable") from None
     return {"status": "healthy"}
 
 
@@ -197,7 +196,7 @@ async def verify_endpoint(
     redis = request.app.state.redis
 
     # Extract config from request metadata
-    thresholds: Dict[str, Any] = {}
+    thresholds: dict[str, Any] = {}
     correction_mode = "none"
     transparency = "opaque"
 
@@ -237,7 +236,7 @@ async def verify_endpoint(
         # Build correction attempt responses for the wire format.
         # When transparency is "transparent", include ALL attempts (even failed)
         # so callers can see which layers were tried and why they failed.
-        attempt_responses: Optional[List[CorrectionAttemptResponse]] = None
+        attempt_responses: Optional[list[CorrectionAttemptResponse]] = None
         if transparency == "transparent" and correction_attempts:
             attempt_responses = [
                 CorrectionAttemptResponse(
@@ -287,9 +286,9 @@ async def verify_endpoint(
             "org_id": event.metadata.get("org_id", "default"),
             "confidence": str(response.confidence) if response.confidence is not None else "",
             "action": response.action,
-            "checks": json.dumps(
-                {k: v.model_dump(mode="json") for k, v in response.checks.items()}
-            ) if response.checks else "{}",
+            "checks": json.dumps({k: v.model_dump(mode="json") for k, v in response.checks.items()})
+            if response.checks
+            else "{}",
             "corrected": str(response.corrected),
         }
 
@@ -315,7 +314,9 @@ async def verify_endpoint(
         await redis.xadd(VERIFIED_STREAM_KEY, {"data": json.dumps(verified_data)})
     except Exception:
         logger.warning(
-            "Failed to emit Redis events for %s", event.execution_id, exc_info=True,
+            "Failed to emit Redis events for %s",
+            event.execution_id,
+            exc_info=True,
             extra={"execution_id": event.execution_id, "agent_id": event.agent_id},
         )
 
@@ -337,7 +338,7 @@ class SingleIngestResponse(BaseModel):
 class BatchIngestRequest(BaseModel):
     """Batch request with a hard cap of 50 events per payload."""
 
-    events: List[IngestEvent] = Field(..., max_length=50)
+    events: list[IngestEvent] = Field(..., max_length=50)
 
 
 @router.post("/v1/ingest", status_code=202, response_model=SingleIngestResponse)
@@ -371,7 +372,7 @@ async def ingest_batch(
     The authenticated org_id is injected into each event's metadata.
     """
     redis = request.app.state.redis
-    execution_ids: List[str] = []
+    execution_ids: list[str] = []
     for event in batch.events:
         event.metadata["org_id"] = auth.org_id
         await redis.xadd(RAW_STREAM_KEY, {"data": event.model_dump_json()})

@@ -2,17 +2,25 @@
 
 from unittest.mock import MagicMock
 
-from app.anomaly import detect_anomalies, MIN_SAMPLES
+from app.anomaly import detect_anomalies
 
 
 def _mock_db_with_stats(
-    cost_count=20, cost_mean=0.10, cost_stddev=0.02,
-    latency_count=20, latency_mean=500.0, latency_stddev=50.0,
+    cost_count=20,
+    cost_mean=0.10,
+    cost_stddev=0.02,
+    latency_count=20,
+    latency_mean=500.0,
+    latency_stddev=50.0,
 ):
     mock = MagicMock()
     mock.execute.return_value.fetchone.return_value = (
-        cost_count, cost_mean, cost_stddev,
-        latency_count, latency_mean, latency_stddev,
+        cost_count,
+        cost_mean,
+        cost_stddev,
+        latency_count,
+        latency_mean,
+        latency_stddev,
     )
     return mock
 

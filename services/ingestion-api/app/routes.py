@@ -7,15 +7,13 @@ Provides:
 """
 
 import logging
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-
+from shared.auth import KeyInfo
 from shared.models import IngestEvent, IngestResponse
 
 from app.auth import verify_api_key
-from shared.auth import KeyInfo
 
 logger = logging.getLogger("agentguard.ingestion-api")
 
@@ -39,7 +37,7 @@ class BatchIngestRequest(BaseModel):
     API boundary via Pydantic validation.
     """
 
-    events: List[IngestEvent] = Field(..., max_length=50)
+    events: list[IngestEvent] = Field(..., max_length=50)
 
 
 @router.get("/health")
@@ -49,7 +47,7 @@ async def health_check(request: Request):
         await request.app.state.redis.ping()
     except Exception:
         logger.error("Health check failed: Redis unreachable", exc_info=True)
-        raise HTTPException(status_code=503, detail="Redis unreachable")
+        raise HTTPException(status_code=503, detail="Redis unreachable") from None
     return {"status": "healthy"}
 
 
@@ -84,7 +82,7 @@ async def ingest_batch(
     The authenticated org_id is injected into each event's metadata.
     """
     redis = request.app.state.redis
-    execution_ids: List[str] = []
+    execution_ids: list[str] = []
     for event in batch.events:
         event.metadata["org_id"] = auth.org_id
         await redis.xadd(STREAM_KEY, {"data": event.model_dump_json()})

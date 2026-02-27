@@ -1,18 +1,14 @@
 """Tests for the correction cascade module."""
 
-import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
-from engine.models import CheckResult, CorrectionAttempt, VerificationResult
 from engine.correction import (
-    LAYER_NAMES,
     correct,
     format_check_failures,
     select_layer,
 )
-
+from engine.models import CheckResult, CorrectionAttempt, VerificationResult
 
 # --- select_layer tests ---
 
@@ -23,8 +19,7 @@ def test_select_layer_schema_only_failure():
         confidence=0.6,
         action="flag",
         checks={
-            "schema": CheckResult(check_type="schema", score=0.0, passed=False,
-                                  details={"errors": ["missing field"]}),
+            "schema": CheckResult(check_type="schema", score=0.0, passed=False, details={"errors": ["missing field"]}),
             "hallucination": CheckResult(check_type="hallucination", score=1.0, passed=True),
             "drift": CheckResult(check_type="drift", score=0.9, passed=True),
         },
@@ -87,11 +82,15 @@ def test_select_layer_none_confidence():
 def test_format_check_failures():
     checks = {
         "schema": CheckResult(
-            check_type="schema", score=0.0, passed=False,
+            check_type="schema",
+            score=0.0,
+            passed=False,
             details={"errors": ["'revenue' is a required property"]},
         ),
         "hallucination": CheckResult(
-            check_type="hallucination", score=1.0, passed=True,
+            check_type="hallucination",
+            score=1.0,
+            passed=True,
         ),
     }
     formatted = format_check_failures(checks)
@@ -115,7 +114,9 @@ async def test_correct_layer1_repair():
             task="Generate financial report",
             checks={
                 "schema": CheckResult(
-                    check_type="schema", score=0.0, passed=False,
+                    check_type="schema",
+                    score=0.0,
+                    passed=False,
                     details={"errors": ["'revenue' is a required property"]},
                 ),
             },
@@ -161,7 +162,9 @@ async def test_correct_layer3_full_reprompt():
             task="Financial summary",
             checks={
                 "hallucination": CheckResult(
-                    check_type="hallucination", score=0.1, passed=False,
+                    check_type="hallucination",
+                    score=0.1,
+                    passed=False,
                     details={"ungrounded": ["Revenue is $999T"]},
                 ),
             },

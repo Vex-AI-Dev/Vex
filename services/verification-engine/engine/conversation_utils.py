@@ -7,7 +7,7 @@ checks to present multi-turn conversation context to the LLM judge.
 from __future__ import annotations
 
 import json
-from typing import Any, List
+from typing import Any
 
 from engine.models import ConversationTurn
 
@@ -21,7 +21,7 @@ def _stringify(value: Any) -> str:
     return json.dumps(value, default=str)
 
 
-def format_history(history: List[ConversationTurn]) -> str:
+def format_history(history: list[ConversationTurn]) -> str:
     """Format conversation turns for inclusion in LLM prompts.
 
     Produces a structured representation of prior turns that LLM checks
@@ -38,7 +38,7 @@ def format_history(history: List[ConversationTurn]) -> str:
     if not history:
         return ""
 
-    parts: List[str] = []
+    parts: list[str] = []
     for turn in history:
         lines = [f"[Turn {turn.sequence_number}]"]
         if turn.task is not None:

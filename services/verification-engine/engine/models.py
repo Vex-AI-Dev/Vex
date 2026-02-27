@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -13,25 +13,25 @@ class ConversationTurn(BaseModel):
     sequence_number: int
     input: Any = None
     output: Any = None
-    task: Optional[str] = None
+    task: str | None = None
 
 
 class CheckResult(BaseModel):
     """Result of a single verification check."""
 
     check_type: str  # "schema", "hallucination", "drift", "coherence"
-    score: Optional[float] = None  # 0-1, None if unable to verify
+    score: float | None = None  # 0-1, None if unable to verify
     passed: bool
-    details: Dict[str, Any] = Field(default_factory=dict)
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class GuardrailRule(BaseModel):
     """A single custom guardrail rule (mirrors shared.models.GuardrailRule)."""
 
-    id: Optional[str] = None
+    id: str | None = None
     name: str = ""
     rule_type: str  # "regex", "keyword", "threshold", "llm"
-    condition: Dict[str, Any] = Field(default_factory=dict)
+    condition: dict[str, Any] = Field(default_factory=dict)
     action: str = "flag"  # "flag" or "block"
     enabled: bool = True
 
@@ -39,7 +39,7 @@ class GuardrailRule(BaseModel):
 class VerificationConfig(BaseModel):
     """Configuration for verification thresholds and check weights."""
 
-    weights: Dict[str, float] = Field(
+    weights: dict[str, float] = Field(
         default_factory=lambda: {
             "schema": 0.3,
             "hallucination": 0.4,
@@ -48,7 +48,7 @@ class VerificationConfig(BaseModel):
     )
     pass_threshold: float = 0.8
     flag_threshold: float = 0.5
-    guardrails: List[GuardrailRule] = Field(default_factory=list)
+    guardrails: list[GuardrailRule] = Field(default_factory=list)
 
 
 class CorrectionAttempt(BaseModel):
@@ -57,9 +57,9 @@ class CorrectionAttempt(BaseModel):
     layer: int  # 1, 2, or 3
     layer_name: str  # "repair", "constrained_regen", "full_reprompt"
     input_action: str  # action that triggered correction
-    input_confidence: Optional[float] = None
+    input_confidence: float | None = None
     corrected_output: Any = None
-    verification: Optional[Dict[str, Any]] = None
+    verification: dict[str, Any] | None = None
     model_used: str = ""
     latency_ms: float = 0.0
     success: bool = False
@@ -70,15 +70,15 @@ class CorrectionResult(BaseModel):
 
     corrected: bool = False
     final_output: Any = None
-    attempts: List[CorrectionAttempt] = Field(default_factory=list)
+    attempts: list[CorrectionAttempt] = Field(default_factory=list)
     total_latency_ms: float = 0.0
-    escalation_path: List[int] = Field(default_factory=list)
+    escalation_path: list[int] = Field(default_factory=list)
 
 
 class VerificationResult(BaseModel):
     """Composite result from the full verification pipeline."""
 
-    confidence: Optional[float] = None  # weighted composite, None if all checks failed
+    confidence: float | None = None  # weighted composite, None if all checks failed
     action: str = "pass"  # "pass" | "flag" | "block"
-    checks: Dict[str, CheckResult] = Field(default_factory=dict)
-    correction: Optional[CorrectionResult] = None
+    checks: dict[str, CheckResult] = Field(default_factory=dict)
+    correction: CorrectionResult | None = None

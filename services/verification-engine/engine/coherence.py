@@ -9,7 +9,7 @@ Explicit corrections (e.g. "I was wrong earlier...") are NOT penalized.
 
 import json
 import logging
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from engine.conversation_utils import format_history
 from engine.llm_client import call_llm
@@ -37,7 +37,7 @@ SYSTEM_PROMPT = (
 
 async def check(
     output: Any,
-    conversation_history: Optional[List[ConversationTurn]] = None,
+    conversation_history: Optional[list[ConversationTurn]] = None,
 ) -> CheckResult:
     """Check agent output for self-contradictions against prior turns.
 

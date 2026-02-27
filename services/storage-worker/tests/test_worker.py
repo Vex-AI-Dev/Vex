@@ -1,8 +1,9 @@
 import json
-import pytest
 from unittest.mock import MagicMock
-from shared.models import IngestEvent, StepRecord
+
+import pytest
 from app.worker import process_event, process_verified_event
+from shared.models import IngestEvent, StepRecord
 
 
 @pytest.fixture
@@ -130,7 +131,10 @@ def test_process_event_upserts_agent(sample_event, mock_s3, mock_db_session):
 
 def test_process_event_returns_stored_notification(sample_event, mock_s3, mock_db_session):
     result = process_event(
-        sample_event, s3_client=mock_s3, db_session=mock_db_session, org_id="org-1",
+        sample_event,
+        s3_client=mock_s3,
+        db_session=mock_db_session,
+        org_id="org-1",
     )
     assert result["execution_id"] == "exec-test-123"
     assert result["agent_id"] == "test-bot"
@@ -145,6 +149,7 @@ def test_process_event_returns_stored_notification(sample_event, mock_s3, mock_d
 
 # --- Tests for process_verified_event ---
 
+
 @pytest.fixture
 def verified_event():
     return {
@@ -152,26 +157,28 @@ def verified_event():
         "agent_id": "test-bot",
         "confidence": "0.85",
         "action": "pass",
-        "checks": json.dumps({
-            "schema": {
-                "check_type": "schema",
-                "score": 1.0,
-                "passed": True,
-                "details": {},
-            },
-            "hallucination": {
-                "check_type": "hallucination",
-                "score": 0.8,
-                "passed": True,
-                "details": {"claims": ["claim1"]},
-            },
-            "drift": {
-                "check_type": "drift",
-                "score": 0.75,
-                "passed": True,
-                "details": {"explanation": "relevant"},
-            },
-        }),
+        "checks": json.dumps(
+            {
+                "schema": {
+                    "check_type": "schema",
+                    "score": 1.0,
+                    "passed": True,
+                    "details": {},
+                },
+                "hallucination": {
+                    "check_type": "hallucination",
+                    "score": 0.8,
+                    "passed": True,
+                    "details": {"claims": ["claim1"]},
+                },
+                "drift": {
+                    "check_type": "drift",
+                    "score": 0.75,
+                    "passed": True,
+                    "details": {"explanation": "relevant"},
+                },
+            }
+        ),
     }
 
 
@@ -223,13 +230,17 @@ def test_process_verified_event_with_correction(mock_db_session):
         "agent_id": "test-bot",
         "confidence": "0.9",
         "action": "pass",
-        "checks": json.dumps({
-            "schema": {"check_type": "schema", "score": 1.0, "passed": True, "details": {}},
-        }),
+        "checks": json.dumps(
+            {
+                "schema": {"check_type": "schema", "score": 1.0, "passed": True, "details": {}},
+            }
+        ),
         "corrected": "True",
-        "correction_attempts": json.dumps([
-            {"layer": 1, "layer_name": "repair", "success": True, "latency_ms": 340.0},
-        ]),
+        "correction_attempts": json.dumps(
+            [
+                {"layer": 1, "layer_name": "repair", "success": True, "latency_ms": 340.0},
+            ]
+        ),
     }
     result = process_verified_event(event, mock_db_session)
     assert result["corrected"] is True
@@ -266,10 +277,12 @@ def test_process_verified_event_preserves_correction_metadata(mock_db_session):
         "action": "pass",
         "checks": "{}",
         "corrected": "True",
-        "correction_attempts": json.dumps([
-            {"layer": 1, "layer_name": "repair", "success": False},
-            {"layer": 2, "layer_name": "constrained_regen", "success": True},
-        ]),
+        "correction_attempts": json.dumps(
+            [
+                {"layer": 1, "layer_name": "repair", "success": False},
+                {"layer": 2, "layer_name": "constrained_regen", "success": True},
+            ]
+        ),
         "original_output": json.dumps("bad output"),
     }
     result = process_verified_event(event, mock_db_session)

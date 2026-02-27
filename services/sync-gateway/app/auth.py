@@ -7,10 +7,8 @@ can enforce the appropriate permission.
 """
 
 import os
-from typing import Dict, Optional
 
 from fastapi import HTTPException, Request
-
 from shared.auth import AuthError, KeyInfo, KeyValidator
 
 DATABASE_URL = os.environ.get(
@@ -19,7 +17,7 @@ DATABASE_URL = os.environ.get(
 )
 SUPABASE_DATABASE_URL = os.environ.get("SUPABASE_DATABASE_URL")
 
-_validators: Dict[str, KeyValidator] = {}
+_validators: dict[str, KeyValidator] = {}
 
 
 def _get_validator(scope: str) -> KeyValidator:
@@ -56,7 +54,7 @@ def _validate_key(request: Request, scope: str) -> KeyInfo:
             status_code=e.status_code,
             detail=e.detail,
             headers=headers or None,
-        )
+        ) from e
 
 
 def verify_api_key(request: Request) -> KeyInfo:

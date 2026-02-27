@@ -1,19 +1,17 @@
 """Tests for the shared KeyValidator authentication module."""
 
 import hashlib
-import json
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from shared.auth import AuthError, KeyInfo, KeyValidator, _CachedKey
-
+from shared.auth import AuthError, KeyInfo, KeyValidator
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_key_entry(
     key_id="key-001",
@@ -80,6 +78,7 @@ def _mock_db_query(mock_engine, row):
 # Tests: Valid key
 # ---------------------------------------------------------------------------
 
+
 class TestValidKey:
     def test_valid_key_returns_key_info(self):
         entry, raw_key, _ = _make_key_entry()
@@ -95,9 +94,7 @@ class TestValidKey:
         assert "verify" in result.scopes
 
     def test_valid_key_with_all_scopes(self):
-        entry, raw_key, _ = _make_key_entry(
-            scopes=["ingest", "verify", "read"]
-        )
+        entry, raw_key, _ = _make_key_entry(scopes=["ingest", "verify", "read"])
         validator, engine = _build_validator(required_scope="ingest")
         _mock_db_query(engine, _make_db_row([entry]))
 
@@ -108,6 +105,7 @@ class TestValidKey:
 # ---------------------------------------------------------------------------
 # Tests: Invalid key
 # ---------------------------------------------------------------------------
+
 
 class TestInvalidKey:
     def test_missing_key_raises_401(self):
@@ -134,6 +132,7 @@ class TestInvalidKey:
 # Tests: Revoked key
 # ---------------------------------------------------------------------------
 
+
 class TestRevokedKey:
     def test_revoked_key_raises_401(self):
         entry, raw_key, _ = _make_key_entry(revoked=True)
@@ -150,6 +149,7 @@ class TestRevokedKey:
 # ---------------------------------------------------------------------------
 # Tests: Expired key
 # ---------------------------------------------------------------------------
+
 
 class TestExpiredKey:
     def test_expired_key_raises_401(self):
@@ -185,6 +185,7 @@ class TestExpiredKey:
 # ---------------------------------------------------------------------------
 # Tests: Scope enforcement
 # ---------------------------------------------------------------------------
+
 
 class TestScopeEnforcement:
     def test_wrong_scope_raises_403(self):
@@ -229,6 +230,7 @@ class TestScopeEnforcement:
 # Tests: Rate limiting
 # ---------------------------------------------------------------------------
 
+
 class TestRateLimiting:
     def test_rate_limit_exceeded_raises_429(self):
         entry, raw_key, _ = _make_key_entry(rate_limit_rpm=3)
@@ -272,6 +274,7 @@ class TestRateLimiting:
 # ---------------------------------------------------------------------------
 # Tests: Cache behavior
 # ---------------------------------------------------------------------------
+
 
 class TestCacheBehavior:
     def test_cache_hit_skips_db_query(self):
@@ -326,6 +329,7 @@ class TestCacheBehavior:
 # Tests: Batched last_used_at
 # ---------------------------------------------------------------------------
 
+
 class TestLastUsedAt:
     def test_usage_tracked_in_buffer(self):
         entry, raw_key, _ = _make_key_entry()
@@ -351,6 +355,7 @@ class TestLastUsedAt:
 # ---------------------------------------------------------------------------
 # Tests: Multiple keys per org
 # ---------------------------------------------------------------------------
+
 
 class TestMultipleKeys:
     def test_org_with_multiple_keys(self):
@@ -382,6 +387,7 @@ class TestMultipleKeys:
 # ---------------------------------------------------------------------------
 # Tests: DB error handling
 # ---------------------------------------------------------------------------
+
 
 class TestDBErrors:
     def test_db_connection_error_raises_500(self):

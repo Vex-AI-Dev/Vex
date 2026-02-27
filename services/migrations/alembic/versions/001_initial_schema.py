@@ -9,10 +9,11 @@ Revises: None
 Create Date: 2026-02-10
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
 # revision identifiers, used by Alembic.
@@ -91,17 +92,13 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("confidence", sa.Float, nullable=True),
-        sa.Column(
-            "action", sa.String(10), server_default="pass", nullable=False
-        ),
+        sa.Column("action", sa.String(10), server_default="pass", nullable=False),
         sa.Column("latency_ms", sa.Float, nullable=True),
         sa.Column("token_count", sa.Integer, nullable=True),
         sa.Column("cost_estimate", sa.Float, nullable=True),
         sa.Column("correction_layers_used", JSONB, nullable=True),
         sa.Column("trace_payload_ref", sa.Text, nullable=True),
-        sa.Column(
-            "status", sa.String(20), server_default="pass", nullable=False
-        ),
+        sa.Column("status", sa.String(20), server_default="pass", nullable=False),
         sa.Column("task", sa.Text, nullable=True),
         sa.Column("metadata", JSONB, server_default="{}", nullable=False),
         # Composite PK required by TimescaleDB — the partitioning column
@@ -110,10 +107,7 @@ def upgrade() -> None:
     )
 
     # Convert to TimescaleDB hypertable
-    op.execute(
-        "SELECT create_hypertable('executions', 'timestamp', "
-        "migrate_data => true)"
-    )
+    op.execute("SELECT create_hypertable('executions', 'timestamp', migrate_data => true)")
 
     op.create_index(
         "ix_executions_agent_id_timestamp",
@@ -153,10 +147,7 @@ def upgrade() -> None:
     )
 
     # Convert to TimescaleDB hypertable
-    op.execute(
-        "SELECT create_hypertable('check_results', 'timestamp', "
-        "migrate_data => true)"
-    )
+    op.execute("SELECT create_hypertable('check_results', 'timestamp', migrate_data => true)")
 
     op.create_index(
         "ix_check_results_execution_id",
@@ -175,9 +166,7 @@ def upgrade() -> None:
         sa.Column("org_id", sa.String(64), nullable=False),
         sa.Column("alert_type", sa.String(50), nullable=False),
         sa.Column("severity", sa.String(20), nullable=False),
-        sa.Column(
-            "delivered", sa.Boolean, server_default="false", nullable=False
-        ),
+        sa.Column("delivered", sa.Boolean, server_default="false", nullable=False),
         sa.Column("webhook_response", JSONB, nullable=True),
         sa.Column(
             "created_at",
@@ -194,9 +183,7 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     op.create_table(
         "human_reviews",
-        sa.Column(
-            "id", sa.BigInteger, autoincrement=True, primary_key=True
-        ),
+        sa.Column("id", sa.BigInteger, autoincrement=True, primary_key=True),
         sa.Column("execution_id", sa.String(64), nullable=False),
         sa.Column("reviewer", sa.String(255), nullable=False),
         sa.Column("verdict", sa.String(50), nullable=False),

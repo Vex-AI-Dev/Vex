@@ -11,7 +11,7 @@ prior conversation turns.
 
 import json
 import logging
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from engine.conversation_utils import format_history
 from engine.llm_client import call_llm
@@ -54,7 +54,7 @@ CONVERSATION_SYSTEM_PROMPT = (
 async def check(
     output: Any,
     ground_truth: Any = None,
-    conversation_history: Optional[List[ConversationTurn]] = None,
+    conversation_history: Optional[list[ConversationTurn]] = None,
 ) -> CheckResult:
     """Check agent output for hallucinations against ground truth.
 

@@ -11,15 +11,11 @@ weights are dynamically rebalanced to include it.
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
+from engine import coherence, drift, hallucination, schema_validator, tool_loop
 from engine import confidence as confidence_scorer
-from engine import coherence
-from engine import drift
 from engine import guardrails as guardrails_checker
-from engine import hallucination
-from engine import schema_validator
-from engine import tool_loop
 from engine.models import CheckResult, ConversationTurn, VerificationConfig, VerificationResult
 
 logger = logging.getLogger("agentguard.verification-engine.pipeline")
@@ -30,9 +26,9 @@ GUARDRAILS_WEIGHT = 0.20
 
 
 def _rebalance_weights(
-    weights: Dict[str, float],
+    weights: dict[str, float],
     coherence_weight: float,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Add coherence weight and proportionally reduce existing weights.
 
     The original weights are scaled down so their relative proportions
@@ -83,12 +79,12 @@ def route_action(
 async def verify(
     output: Any,
     task: Optional[str] = None,
-    schema: Optional[Dict[str, Any]] = None,
+    schema: Optional[dict[str, Any]] = None,
     ground_truth: Any = None,
-    conversation_history: Optional[List[ConversationTurn]] = None,
+    conversation_history: Optional[list[ConversationTurn]] = None,
     config: Optional[VerificationConfig] = None,
     steps: Optional[list] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> VerificationResult:
     """Run the full verification pipeline on agent output.
 
@@ -143,7 +139,7 @@ async def verify(
     drift_result = llm_results[1]
 
     # 3. Compute composite confidence
-    checks: Dict[str, CheckResult] = {
+    checks: dict[str, CheckResult] = {
         "schema": schema_result,
         "hallucination": hallucination_result,
         "drift": drift_result,

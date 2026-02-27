@@ -7,9 +7,9 @@ and does not require LLM calls.
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
-from jsonschema import Draft7Validator, ValidationError
+from jsonschema import Draft7Validator
 
 from engine.models import CheckResult
 
@@ -18,7 +18,7 @@ logger = logging.getLogger("agentguard.verification-engine.schema")
 
 def validate(
     output: Any,
-    schema: Optional[Dict[str, Any]] = None,
+    schema: Optional[dict[str, Any]] = None,
 ) -> CheckResult:
     """Validate agent output against a JSON Schema.
 
@@ -46,7 +46,7 @@ def validate(
             pass
 
     validator = Draft7Validator(schema)
-    errors: List[str] = []
+    errors: list[str] = []
 
     for error in validator.iter_errors(output):
         errors.append(error.message)

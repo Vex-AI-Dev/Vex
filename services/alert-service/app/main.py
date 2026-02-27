@@ -11,10 +11,10 @@ import logging
 import os
 
 import redis.asyncio as aioredis
+from shared.redis_config import REDIS_CLIENT_OPTIONS
 
 from app.db import SessionLocal
 from app.worker import process_verified_event
-from shared.redis_config import REDIS_CLIENT_OPTIONS
 
 logger = logging.getLogger("agentguard.alert-service")
 
@@ -44,7 +44,10 @@ async def run() -> None:
     # Create consumer group; ignore error if it already exists.
     try:
         await redis_client.xgroup_create(
-            STREAM_KEY, CONSUMER_GROUP, id="0", mkstream=True,
+            STREAM_KEY,
+            CONSUMER_GROUP,
+            id="0",
+            mkstream=True,
         )
         logger.info("Created consumer group '%s' on stream '%s'", CONSUMER_GROUP, STREAM_KEY)
     except Exception:
@@ -68,7 +71,7 @@ async def run() -> None:
             if not messages:
                 continue
 
-            for stream, entries in messages:
+            for _stream, entries in messages:
                 for msg_id, data in entries:
                     try:
                         event_data = json.loads(data["data"])
@@ -88,7 +91,10 @@ async def run() -> None:
                             msg_id,
                             exc,
                             exc_info=True,
-                            extra={"msg_id": msg_id, "execution_id": event_data.get("execution_id") if 'event_data' in locals() else None},
+                            extra={
+                                "msg_id": msg_id,
+                                "execution_id": event_data.get("execution_id") if "event_data" in locals() else None,
+                            },
                         )
         except Exception as exc:
             logger.error("Stream read error: %s", exc, exc_info=True, extra={"stream": STREAM_KEY})

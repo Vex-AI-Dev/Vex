@@ -17,15 +17,15 @@ import logging
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
+from shared.plan_limits import get_plan_config
 from sqlalchemy import text
 
 from app.anomaly import detect_anomalies
 from app.dedup import AlertDeduplicator
 from app.slack import deliver_slack, format_anomaly_slack_message, format_slack_message, get_slack_webhook_url
 from app.webhook import deliver
-from shared.plan_limits import get_plan_config
 
 logger = logging.getLogger("agentguard.alert-service")
 
@@ -75,9 +75,9 @@ def _get_org_plan(org_id: str, db_session: object) -> str:
 
 
 async def process_verified_event(
-    event_data: Dict[str, Any],
+    event_data: dict[str, Any],
     db_session: object,
-) -> Optional[Dict[str, Any]]:
+) -> Optional[dict[str, Any]]:
     """Process a verified event and deliver notifications if needed.
 
     Delivery is gated by the org's plan limits:
@@ -117,10 +117,7 @@ async def process_verified_event(
     # Parse check results for failure details
     checks_raw = event_data.get("checks", "{}")
     checks = json.loads(checks_raw) if isinstance(checks_raw, str) else checks_raw
-    failure_types = [
-        name for name, check in checks.items()
-        if not check.get("passed", True)
-    ]
+    failure_types = [name for name, check in checks.items() if not check.get("passed", True)]
 
     # --- Deduplication check ---
     alert_type = f"verification_{action}"
@@ -228,7 +225,7 @@ async def process_verified_event(
 
 
 async def _process_anomalies(
-    event_data: Dict[str, Any],
+    event_data: dict[str, Any],
     db_session: object,
 ) -> None:
     """Run anomaly detection and create/deliver alerts for any anomalies found."""

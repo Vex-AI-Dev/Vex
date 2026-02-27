@@ -66,10 +66,7 @@ def main() -> None:
         with tsdb_engine.connect() as tsdb_conn:
             for row in accounts:
                 slug, plan, overrides_raw = row[0], row[1] or "free", row[2]
-                overrides = (
-                    json.loads(overrides_raw) if isinstance(overrides_raw, str)
-                    else overrides_raw
-                )
+                overrides = json.loads(overrides_raw) if isinstance(overrides_raw, str) else overrides_raw
                 config = get_plan_config(plan, overrides)
 
                 # Find org_id in TimescaleDB by account_slug
@@ -88,7 +85,9 @@ def main() -> None:
                 )
                 logger.info(
                     "Enforced %d-day retention for org=%s plan=%s",
-                    config.retention_days, org_id, plan,
+                    config.retention_days,
+                    org_id,
+                    plan,
                 )
 
             tsdb_conn.commit()

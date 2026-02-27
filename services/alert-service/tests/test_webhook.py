@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
-
 from app.webhook import deliver
 
 
@@ -44,8 +43,7 @@ async def test_retry_on_server_error():
         call_count += 1
         return resp
 
-    with patch("app.webhook.httpx.AsyncClient") as MockClient, \
-         patch("app.webhook.RETRY_DELAYS", [0.01, 0.01, 0.01]):
+    with patch("app.webhook.httpx.AsyncClient") as MockClient, patch("app.webhook.RETRY_DELAYS", [0.01, 0.01, 0.01]):
         instance = AsyncMock()
         instance.post = mock_post
         instance.__aenter__ = AsyncMock(return_value=instance)
@@ -66,8 +64,7 @@ async def test_retry_on_server_error():
 async def test_max_retries_exhausted():
     mock_response = httpx.Response(500)
 
-    with patch("app.webhook.httpx.AsyncClient") as MockClient, \
-         patch("app.webhook.RETRY_DELAYS", [0.01, 0.01, 0.01]):
+    with patch("app.webhook.httpx.AsyncClient") as MockClient, patch("app.webhook.RETRY_DELAYS", [0.01, 0.01, 0.01]):
         instance = AsyncMock()
         instance.post = AsyncMock(return_value=mock_response)
         instance.__aenter__ = AsyncMock(return_value=instance)
@@ -86,8 +83,7 @@ async def test_max_retries_exhausted():
 
 @pytest.mark.asyncio
 async def test_connection_error_retries():
-    with patch("app.webhook.httpx.AsyncClient") as MockClient, \
-         patch("app.webhook.RETRY_DELAYS", [0.01, 0.01, 0.01]):
+    with patch("app.webhook.httpx.AsyncClient") as MockClient, patch("app.webhook.RETRY_DELAYS", [0.01, 0.01, 0.01]):
         instance = AsyncMock()
         instance.post = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
         instance.__aenter__ = AsyncMock(return_value=instance)

@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from engine.hallucination import check
 from engine.models import ConversationTurn
 

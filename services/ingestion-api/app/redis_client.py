@@ -3,7 +3,6 @@
 import os
 
 import redis.asyncio as redis
-
 from shared.redis_config import REDIS_CLIENT_OPTIONS
 
 

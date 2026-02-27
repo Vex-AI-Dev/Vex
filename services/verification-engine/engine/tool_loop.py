@@ -9,7 +9,7 @@ This check is fully deterministic and does not require LLM calls.
 """
 
 import logging
-from typing import List, Optional
+from typing import Optional
 
 from engine.models import CheckResult
 
@@ -20,7 +20,7 @@ DEFAULT_MAX_CONSECUTIVE_REPEATS = 5
 DEFAULT_MAX_CYCLE_REPEATS = 4
 
 
-def _count_consecutive_repeats(tool_names: List[str]) -> tuple:
+def _count_consecutive_repeats(tool_names: list[str]) -> tuple:
     """Find the longest run of consecutive identical tool calls.
 
     Returns:
@@ -51,7 +51,7 @@ def _count_consecutive_repeats(tool_names: List[str]) -> tuple:
     return (max_name, max_count)
 
 
-def _detect_cycle(tool_names: List[str], max_cycle_repeats: int) -> Optional[dict]:
+def _detect_cycle(tool_names: list[str], max_cycle_repeats: int) -> Optional[dict]:
     """Detect repeating cycle patterns in tool call sequence.
 
     Tries cycle lengths from 2 up to len/max_cycle_repeats.
@@ -69,7 +69,7 @@ def _detect_cycle(tool_names: List[str], max_cycle_repeats: int) -> Optional[dic
         pattern = tool_names[:cycle_len]
         repeats = 0
         for start in range(0, n - cycle_len + 1, cycle_len):
-            if tool_names[start:start + cycle_len] == pattern:
+            if tool_names[start : start + cycle_len] == pattern:
                 repeats += 1
             else:
                 break

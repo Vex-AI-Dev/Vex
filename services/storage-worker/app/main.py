@@ -18,12 +18,12 @@ import logging
 import os
 
 import redis.asyncio as aioredis
+from shared.models import IngestEvent
+from shared.redis_config import REDIS_CLIENT_OPTIONS
 
 from app.db import SessionLocal
 from app.s3_client import get_s3_client
 from app.worker import STORED_STREAM_KEY, VERIFIED_STREAM_KEY, process_event, process_verified_event
-from shared.models import IngestEvent
-from shared.redis_config import REDIS_CLIENT_OPTIONS
 
 logger = logging.getLogger("agentguard.storage-worker")
 
@@ -42,7 +42,10 @@ async def _ensure_consumer_group(
     """Create a consumer group, ignoring if it already exists."""
     try:
         await redis_client.xgroup_create(
-            stream_key, group_name, id="0", mkstream=True,
+            stream_key,
+            group_name,
+            id="0",
+            mkstream=True,
         )
         logger.info("Created consumer group '%s' on stream '%s'", group_name, stream_key)
     except Exception:
@@ -67,7 +70,7 @@ async def _consume_raw(redis_client: aioredis.Redis, s3_client: object) -> None:
             if not messages:
                 continue
 
-            for stream, entries in messages:
+            for _stream, entries in messages:
                 for msg_id, data in entries:
                     try:
                         event = IngestEvent.model_validate_json(data["data"])
@@ -99,7 +102,11 @@ async def _consume_raw(redis_client: aioredis.Redis, s3_client: object) -> None:
                             msg_id,
                             exc,
                             exc_info=True,
-                            extra={"msg_id": msg_id, "execution_id": event.execution_id if 'event' in locals() else None, "org_id": org_id if 'org_id' in locals() else None},
+                            extra={
+                                "msg_id": msg_id,
+                                "execution_id": event.execution_id if "event" in locals() else None,
+                                "org_id": org_id if "org_id" in locals() else None,
+                            },
                         )
         except Exception as exc:
             logger.error("Raw stream read error: %s", exc, exc_info=True, extra={"stream": RAW_STREAM_KEY})
@@ -120,7 +127,7 @@ async def _consume_verified(redis_client: aioredis.Redis) -> None:
             if not messages:
                 continue
 
-            for stream, entries in messages:
+            for _stream, entries in messages:
                 for msg_id, data in entries:
                     try:
                         event_data = json.loads(data["data"])
@@ -134,7 +141,9 @@ async def _consume_verified(redis_client: aioredis.Redis) -> None:
                             db_session.close()
 
                         await redis_client.xack(
-                            VERIFIED_STREAM_KEY, VERIFIED_CONSUMER_GROUP, msg_id,
+                            VERIFIED_STREAM_KEY,
+                            VERIFIED_CONSUMER_GROUP,
+                            msg_id,
                         )
 
                         # Publish updated notification for real-time consumers
@@ -148,7 +157,10 @@ async def _consume_verified(redis_client: aioredis.Redis) -> None:
                             msg_id,
                             exc,
                             exc_info=True,
-                            extra={"msg_id": msg_id, "execution_id": event_data.get("execution_id") if 'event_data' in locals() else None},
+                            extra={
+                                "msg_id": msg_id,
+                                "execution_id": event_data.get("execution_id") if "event_data" in locals() else None,
+                            },
                         )
         except Exception as exc:
             logger.error("Verified stream read error: %s", exc, exc_info=True, extra={"stream": VERIFIED_STREAM_KEY})
@@ -178,7 +190,10 @@ async def run() -> None:
         pass
     try:
         await redis_client.xgroup_create(
-            VERIFIED_STREAM_KEY, VERIFIED_CONSUMER_GROUP, id="$", mkstream=True,
+            VERIFIED_STREAM_KEY,
+            VERIFIED_CONSUMER_GROUP,
+            id="$",
+            mkstream=True,
         )
         logger.info("Created consumer group '%s' from latest on '%s'", VERIFIED_CONSUMER_GROUP, VERIFIED_STREAM_KEY)
     except Exception:

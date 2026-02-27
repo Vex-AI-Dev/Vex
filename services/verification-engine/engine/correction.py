@@ -19,7 +19,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from engine.conversation_utils import format_history
 from engine.llm_client import call_llm
@@ -32,7 +32,7 @@ from engine.models import (
 
 logger = logging.getLogger("agentguard.verification-engine.correction")
 
-LAYER_NAMES: Dict[int, str] = {1: "repair", 2: "constrained_regen", 3: "full_reprompt"}
+LAYER_NAMES: dict[int, str] = {1: "repair", 2: "constrained_regen", 3: "full_reprompt"}
 
 # Model selection: Layer 1 uses fast/cheap model, Layers 2-3 use strong model
 DEFAULT_REPAIR_MODEL = "gpt-4o-mini"
@@ -66,9 +66,7 @@ def select_layer(result: VerificationResult) -> int:
 
     # Schema-only failure -> Layer 1 (Repair)
     schema = checks.get("schema")
-    non_schema_failed = any(
-        not c.passed for name, c in checks.items() if name != "schema"
-    )
+    non_schema_failed = any(not c.passed for name, c in checks.items() if name != "schema")
     if schema and not schema.passed and not non_schema_failed:
         return 1
 
@@ -84,7 +82,7 @@ def select_layer(result: VerificationResult) -> int:
     return 3
 
 
-def format_check_failures(checks: Dict[str, CheckResult]) -> str:
+def format_check_failures(checks: dict[str, CheckResult]) -> str:
     """Format failed checks into a human-readable error description.
 
     Only includes checks that failed (passed=False).
@@ -95,24 +93,22 @@ def format_check_failures(checks: Dict[str, CheckResult]) -> str:
     Returns:
         Formatted string listing each failed check with its score and details.
     """
-    parts: List[str] = []
+    parts: list[str] = []
     for name, check in checks.items():
         if not check.passed:
             details_str = json.dumps(check.details, default=str) if check.details else ""
-            parts.append(
-                f"- {name} (score={check.score}): {details_str}"
-            )
+            parts.append(f"- {name} (score={check.score}): {details_str}")
     return "\n".join(parts) if parts else "No specific errors identified."
 
 
 async def correct(
     layer: int,
     output: Any,
-    task: Optional[str] = None,
-    checks: Optional[Dict[str, CheckResult]] = None,
-    schema: Optional[Dict[str, Any]] = None,
+    task: str | None = None,
+    checks: dict[str, CheckResult] | None = None,
+    schema: dict[str, Any] | None = None,
     ground_truth: Any = None,
-    conversation_history: Optional[List[ConversationTurn]] = None,
+    conversation_history: list[ConversationTurn] | None = None,
     input_data: Any = None,
 ) -> CorrectionAttempt:
     """Execute a single correction attempt at the given layer.
@@ -138,11 +134,22 @@ async def correct(
         corrected_output, model = await _layer1_repair(output, checks)
     elif layer == 2:
         corrected_output, model = await _layer2_constrained_regen(
-            task, checks, schema, ground_truth, conversation_history, input_data,
+            task,
+            checks,
+            schema,
+            ground_truth,
+            conversation_history,
+            input_data,
         )
     else:
         corrected_output, model = await _layer3_full_reprompt(
-            output, task, checks, schema, ground_truth, conversation_history, input_data,
+            output,
+            task,
+            checks,
+            schema,
+            ground_truth,
+            conversation_history,
+            input_data,
         )
 
     elapsed_ms = (time.monotonic() - start) * 1000.0
@@ -162,8 +169,8 @@ async def correct(
 
 async def _layer1_repair(
     output: Any,
-    checks: Dict[str, CheckResult],
-) -> Tuple[Any, str]:
+    checks: dict[str, CheckResult],
+) -> tuple[Any, str]:
     """Layer 1: Surgical repair of specific errors.
 
     Uses a small/fast model to make targeted fixes. The failed output is
@@ -209,13 +216,13 @@ async def _layer1_repair(
 
 
 async def _layer2_constrained_regen(
-    task: Optional[str],
-    checks: Dict[str, CheckResult],
-    schema: Optional[Dict[str, Any]],
+    task: str | None,
+    checks: dict[str, CheckResult],
+    schema: dict[str, Any] | None,
     ground_truth: Any,
-    conversation_history: Optional[List[ConversationTurn]],
+    conversation_history: list[ConversationTurn] | None,
     input_data: Any,
-) -> Tuple[Any, str]:
+) -> tuple[Any, str]:
     """Layer 2: Constrained regeneration -- fresh output WITHOUT the failed output.
 
     This is the key differentiator: by not showing the failed output, the model
@@ -224,7 +231,7 @@ async def _layer2_constrained_regen(
     """
     model = _get_strong_model()
 
-    constraints: List[str] = []
+    constraints: list[str] = []
     if schema:
         constraints.append(f"You MUST follow this schema: {json.dumps(schema)}")
     if ground_truth:
@@ -285,13 +292,13 @@ async def _layer2_constrained_regen(
 
 async def _layer3_full_reprompt(
     output: Any,
-    task: Optional[str],
-    checks: Dict[str, CheckResult],
-    schema: Optional[Dict[str, Any]],
+    task: str | None,
+    checks: dict[str, CheckResult],
+    schema: dict[str, Any] | None,
     ground_truth: Any,
-    conversation_history: Optional[List[ConversationTurn]],
+    conversation_history: list[ConversationTurn] | None,
     input_data: Any,
-) -> Tuple[Any, str]:
+) -> tuple[Any, str]:
     """Layer 3: Full re-prompt with explicit failure feedback.
 
     Last resort -- the model sees what went wrong and is instructed to avoid
@@ -299,10 +306,10 @@ async def _layer3_full_reprompt(
     """
     model = _get_strong_model()
 
-    output_str = output if isinstance(output, str) else json.dumps(output, default=str)
+    output if isinstance(output, str) else json.dumps(output, default=str)
     failures = format_check_failures(checks)
 
-    constraints: List[str] = []
+    constraints: list[str] = []
     if schema:
         constraints.append(f"Schema: {json.dumps(schema)}")
     if ground_truth:
