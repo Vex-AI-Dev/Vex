@@ -14,7 +14,7 @@ from shared.auth import KeyInfo
 
 def _fake_key_info() -> KeyInfo:
     """Return a stub KeyInfo for test auth bypass."""
-    return KeyInfo(org_id="test-org", key_id="test-key", scopes=["verify", "ingest"])
+    return KeyInfo(org_id="test-org", key_id="test-key", scopes=["verify", "ingest"], plan="pro")
 
 
 @pytest.fixture
@@ -83,8 +83,8 @@ async def test_verify_returns_result(client, mock_redis):
 
 
 @pytest.mark.asyncio
-async def test_verify_timeout_returns_passthrough(client, mock_redis):
-    """When verification exceeds the 2s timeout, return pass-through."""
+async def test_verify_timeout_returns_flag(client, mock_redis):
+    """When verification exceeds the 2s timeout, return flag for review."""
 
     async def slow_verify(**kwargs):
         await asyncio.sleep(10)
@@ -102,7 +102,7 @@ async def test_verify_timeout_returns_passthrough(client, mock_redis):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["action"] == "pass"
+    assert data["action"] == "flag"
     assert data["confidence"] is None
 
 
@@ -441,8 +441,8 @@ async def test_verify_correction_all_fail_blocks(client, mock_redis):
 
 
 @pytest.mark.asyncio
-async def test_verify_correction_timeout_passthrough(client, mock_redis):
-    """10s timeout during correction → pass-through."""
+async def test_verify_correction_timeout_flags(client, mock_redis):
+    """10s timeout during correction → flag for review."""
 
     async def slow_verify(**kwargs):
         await asyncio.sleep(15)
@@ -456,7 +456,7 @@ async def test_verify_correction_timeout_passthrough(client, mock_redis):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["action"] == "pass"
+    assert data["action"] == "flag"
     assert data["corrected"] is False
 
 
