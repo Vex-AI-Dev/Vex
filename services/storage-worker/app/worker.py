@@ -77,7 +77,7 @@ def process_event(
         text("""
             INSERT INTO agents (agent_id, org_id, name, task, updated_at)
             VALUES (:agent_id, :org_id, :name, :task, NOW())
-            ON CONFLICT (agent_id) DO UPDATE SET
+            ON CONFLICT (agent_id, org_id) DO UPDATE SET
                 updated_at = NOW(),
                 task = COALESCE(EXCLUDED.task, agents.task)
         """),
