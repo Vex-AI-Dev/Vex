@@ -20,8 +20,8 @@ def test_route_action_block():
     assert route_action(0.3, pass_threshold=0.8, flag_threshold=0.5) == "block"
 
 
-def test_route_action_none_returns_pass():
-    assert route_action(None, pass_threshold=0.8, flag_threshold=0.5) == "pass"
+def test_route_action_none_returns_flag():
+    assert route_action(None, pass_threshold=0.8, flag_threshold=0.5) == "flag"
 
 
 def test_route_action_at_threshold_boundary():
