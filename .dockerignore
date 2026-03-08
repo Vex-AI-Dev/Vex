@@ -1,0 +1,54 @@
+# Version control
+.git
+.github
+
+# Python virtual environments
+.venv
+venv
+env
+
+# Python bytecode and build artifacts
+__pycache__
+*.pyc
+*.egg-info
+.eggs
+dist
+build
+
+# Node.js and Next.js
+node_modules
+.next
+.turbo
+
+# Test and coverage
+.coverage
+htmlcov
+.pytest_cache
+
+# Logs and media
+*.log
+*.png
+*.jpeg
+*.jpg
+*.zip
+
+# OS and editor
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Terraform
+.terraform
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# Excluded directories
+supermemory/
+mem0/
+vex-final/
+.playwright-mcp/
+docs/
